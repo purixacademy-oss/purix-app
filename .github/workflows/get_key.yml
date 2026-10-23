@@ -1,0 +1,22 @@
+name: Get Keystore and SHA-1
+
+on: 
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  generate-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Keystore
+        run: keytool -genkey -v -keystore purix-release.jks -storepass purix@2026 -alias purixkey -keypass purix@2026 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Purix, OU=IT, O=Purix, L=Patna, ST=Bihar, C=IN"
+
+      - name: Show SHA-1 Fingerprint
+        run: keytool -list -v -keystore purix-release.jks -alias purixkey -storepass purix@2026
+
+      - name: Upload Keystore for Download
+        uses: actions/upload-artifact@v4
+        with:
+          name: Purix-Permanent-Key
+          path: purix-release.jks

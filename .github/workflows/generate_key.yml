@@ -1,0 +1,24 @@
+name: Keystore Generator
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Keystore File
+        run: |
+          keytool -genkey -v -keystore purix-key.jks -storepass purix123 -alias purix -keypass purix123 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Purix Academy, OU=IT, O=Purix, L=Patna, ST=Bihar, C=IN"
+          echo "✅ Keystore Generated Successfully!"
+
+      - name: Get SHA-1 and SHA-256
+        run: |
+          echo "👇 YAHAN SE SHA-1 AUR SHA-256 COPY KARKE FIREBASE ME DALEIN 👇"
+          keytool -list -v -keystore purix-key.jks -alias purix -storepass purix123 -keypass purix123 | grep -E "(SHA1:|SHA256:)"
+          echo "👆 UPAR WALI KEYS COPY KAREIN 👆"
+
+      - name: Upload Keystore for Download
+        uses: actions/upload-artifact@v4
+        with:
+          name: purix-key
+          path: purix-key.jks

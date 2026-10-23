@@ -1,0 +1,58 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.4'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Ensure Keystore and Resources exist on Server
+      - name: Prepare Keystore and Build Assets
+        run: |
+          mkdir -p android/app
+          if [ ! -f android/app/purix-release.jks ]; then
+            keytool -genkey -v -keystore android/app/purix-release.jks -storepass purix@2026 -alias purixkey -keypass purix@2026 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Purix Academy, O=Purix, C=IN"
+          fi
+          if [ ! -f android/app/google-services.json ]; then
+            echo '{"project_info":{"project_number":"194600932123","project_id":"purix-academy","storage_bucket":"purix-academy.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:194600932123:android:3aa0f84f2ad133158779be","android_client_info":{"package_name":"com.purixacademy.app"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyKey"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > android/app/google-services.json
+          fi
+
+      - name: Build Universal Release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Build Release App Bundle (for Play Store & Indus)
+        run: flutter build appbundle --release --no-tree-shake-icons
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Purix-Academy-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload App Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Purix-Academy-Release-AAB
+          path: build/app/outputs/bundle/release/app-release.aab

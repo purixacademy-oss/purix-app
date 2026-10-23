@@ -1,0 +1,9 @@
+{
+  "name": "Purix Academy",
+  "description": "Official App for Purix Academy - High-yield board question banks, simulations & notes",
+  "version": "1.0.0",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
