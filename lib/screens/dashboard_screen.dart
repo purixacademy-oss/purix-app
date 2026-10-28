@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/sheet_service.dart';
+import 'board_screen.dart';
 import 'class_screen.dart';
 import 'subject_screen.dart';
 import 'free_content_screen.dart';
@@ -11,11 +12,13 @@ import 'login_screen.dart';
 class DashboardScreen extends StatefulWidget {
   final String userName;
   final String selectedClass;
+  final String? selectedBoard;
 
   const DashboardScreen({
     super.key,
     required this.userName,
     required this.selectedClass,
+    this.selectedBoard,
   });
 
   @override
@@ -24,6 +27,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late String currentClass;
+  late String currentBoard;
   late String currentName;
   String currentPhone = '';
   String currentEmail = '';
@@ -31,7 +35,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String subscriptionStatus = 'SYNCING...';
 
   final String supportWhatsAppNumber = "919508774890";
-  final String academyUPI = "6201161834@ptyes";
 
   // Progress metrics
   bool isLoadingProgress = true;
@@ -45,9 +48,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     currentClass = widget.selectedClass;
+    currentBoard = widget.selectedBoard ?? 'Bihar Board (BSEB)';
     currentName = widget.userName;
     _loadUserDataAndCheckProfile();
-    _loadLearningProgress(forceRefresh: false); // Strict 12-hour cache
+    _loadLearningProgress(forceRefresh: false);
   }
 
   String _getGreeting() {
@@ -75,12 +79,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Colors.white54;
   }
 
-  // Load progress strictly from 12-hour cache (Zero API calls if already cached)
   Future<void> _loadLearningProgress({bool forceRefresh = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Count completed quizzes locally
       int quizCount = 0;
       final keys = prefs.getKeys();
       for (final key in keys) {
@@ -97,8 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         prefix = "10th";
       }
 
-      // Fetch ONLY from MCQ sheet to prevent chapter duplicates
-      final mcqData = await SheetService.fetchSheetData("${prefix} MCQ", forceRefresh: forceRefresh);
+      final mcqData = await SheetService.fetchSheetData("${prefix} MCQ", board: currentBoard, forceRefresh: forceRefresh);
 
       final Map<String, Set<String>> grouped = {};
       for (final row in mcqData) {
@@ -194,7 +195,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // 12-Hour Throttled Profile Sync (Avoids calling Google Sheet on every single app open)
   Future<void> _loadUserDataAndCheckProfile() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -205,6 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       currentUid = prefs.getString('user_uid') ?? 'ID-NOT-FOUND';
       subscriptionStatus = prefs.getString('user_sub') ?? 'SYNCING...';
       currentName = prefs.getString('user_name') ?? widget.userName;
+      currentBoard = prefs.getString('user_board') ?? currentBoard;
     });
 
     final lastSyncStr = prefs.getString('user_last_sync_time');
@@ -217,6 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         phone: currentPhone,
         email: currentEmail.isNotEmpty ? currentEmail : "N/A",
         selectedClass: currentClass,
+        selectedBoard: currentBoard,
       ).then((sub) async {
         if (!mounted) return;
 
@@ -253,15 +255,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final apiUri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedText");
 
     bool launched = false;
-
-    // 1. Try native WhatsApp direct intent first
     try {
       if (await canLaunchUrl(nativeUri)) {
         launched = await launchUrl(nativeUri, mode: LaunchMode.externalApplication);
       }
     } catch (_) {}
 
-    // 2. Try wa.me URL in external browser/app
     if (!launched) {
       try {
         if (await canLaunchUrl(webUri)) {
@@ -270,21 +269,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } catch (_) {}
     }
 
-    // 3. Try direct api.whatsapp.com without strict canLaunch check
     if (!launched) {
       try {
         launched = await launchUrl(apiUri, mode: LaunchMode.externalApplication);
       } catch (_) {}
     }
 
-    // 4. Try platform default launcher
-    if (!launched) {
-      try {
-        launched = await launchUrl(webUri, mode: LaunchMode.platformDefault);
-      } catch (_) {}
-    }
-
-    // 5. Fallback dialog if device has restricted links or no WhatsApp app installed
     if (!launched && mounted) {
       showDialog(
         context: context,
@@ -298,20 +288,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Icon(Icons.support_agent_rounded, color: Color(0xFFFFB800), size: 26),
               SizedBox(width: 10),
-              Text(
-                "Purix Help Desk",
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              Text("Purix Help Desk", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Connect directly with Purix Academy Support:",
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
+              const Text("Connect directly with Purix Academy Support:", style: TextStyle(color: Colors.white70, fontSize: 12)),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -325,28 +309,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Icon(Icons.phone_rounded, color: Color(0xFFFFB800), size: 18),
                     const SizedBox(width: 8),
                     const Expanded(
-                      child: Text(
-                        "+91 9508774890",
-                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
-                      ),
+                      child: Text("+91 9508774890", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
                     ),
                     InkWell(
                       onTap: () {
                         Clipboard.setData(const ClipboardData(text: "+919508774890"));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Support Number copied!"),
-                            backgroundColor: Color(0xFF00FF88),
-                            duration: Duration(seconds: 2),
-                          ),
+                          const SnackBar(content: Text("Support Number copied!"), backgroundColor: Color(0xFF00FF88), duration: Duration(seconds: 2)),
                         );
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00F0FF).withOpacity(0.15),
+                          color: const Color(0xFF00F0FF).withAlpha(38),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF00F0FF).withOpacity(0.4)),
+                          border: Border.all(color: const Color(0xFF00F0FF).withAlpha(100)),
                         ),
                         child: const Text("COPY", style: TextStyle(color: Color(0xFF00F0FF), fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
@@ -375,10 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               icon: const Icon(Icons.call_rounded, color: Colors.black, size: 15),
-              label: const Text(
-                "CALL SUPPORT",
-                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11),
-              ),
+              label: const Text("CALL SUPPORT", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
           ],
         ),
@@ -386,7 +360,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // Indus App Store Policy Compliant Dialog (No Price, No Payment, Only Contact Center)
   void _showPaymentDialog() {
+    const neonCyan = Color(0xFF00F0FF);
     const neonGold = Color(0xFFFFB800);
 
     showDialog(
@@ -400,11 +376,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           title: const Column(
             children: [
-              Icon(Icons.workspace_premium_rounded, color: neonGold, size: 40),
+              Icon(Icons.shield_rounded, color: neonGold, size: 36),
               SizedBox(height: 8),
               Text(
-                "PURIX PRO VIP PASS",
-                style: TextStyle(color: neonGold, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                "Classroom Students Only",
+                style: TextStyle(color: neonGold, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -413,8 +390,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "Unlock all Chapter Test Sets, Formula Sheets & WhatsApp Mentor Support.",
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                "This section is exclusively for registered students of Purix Academy. Access is provided at our classroom center upon enrollment.",
+                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
               Container(
@@ -429,16 +407,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Fee:", style: TextStyle(color: Colors.white60, fontSize: 12)),
-                        Text("₹599 (Full Syllabus)", style: TextStyle(color: neonGold, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text("Center Node:", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        Text("Purix Classroom Center", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                       ],
                     ),
-                    const Divider(color: Colors.white10, height: 16),
+                    const Divider(color: Colors.white10, height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("UPI ID:", style: TextStyle(color: Colors.white60, fontSize: 12)),
-                        Text(academyUPI, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace')),
+                        const Text("Cadet ID:", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        Text(currentUid, style: const TextStyle(color: neonGold, fontWeight: FontWeight.bold, fontSize: 11, fontFamily: 'monospace')),
+                      ],
+                    ),
+                    const Divider(color: Colors.white10, height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("Batch Material:", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        Text("$currentClass Syllabus", style: const TextStyle(color: Color(0xFF00FF88), fontWeight: FontWeight.bold, fontSize: 11)),
                       ],
                     ),
                   ],
@@ -446,27 +432,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
+          actionsAlignment: MainAxisAlignment.center,
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("CANCEL", style: TextStyle(color: Colors.white54, fontSize: 11)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: neonGold,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _openWhatsApp(
-                  message: "Hello Purix Admin, I want to activate PURIX PRO PASS (₹599) for Cadet $currentName ($currentClass, UID: $currentUid, Phone: $currentPhone).",
-                );
-              },
-              icon: const Icon(Icons.chat_bubble_rounded, color: Colors.black, size: 16),
-              label: const Text(
-                "PAY & NOTIFY",
-                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11),
-              ),
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: neonCyan,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(dialogContext);
+                      try {
+                        await launchUrl(Uri.parse("tel:+919508774890"), mode: LaunchMode.externalApplication);
+                      } catch (_) {}
+                    },
+                    icon: const Icon(Icons.phone_rounded, size: 16),
+                    label: const Text(
+                      "CONTACT CENTER",
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text("CLOSE", style: TextStyle(color: Colors.white38, fontSize: 11)),
+                ),
+              ],
             ),
           ],
         );
@@ -474,19 +471,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _changeClass() async {
-    final newClass = await Navigator.push(
+  void _changeBoard() async {
+    final newBoard = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (context) => ClassScreen(userName: currentName)),
+      MaterialPageRoute(
+        builder: (context) => BoardScreen(
+          userName: currentName,
+          currentBoard: currentBoard,
+          isSwitching: true,
+        ),
+      ),
     );
 
-    if (newClass != null && newClass is String && newClass != currentClass) {
+    if (newBoard != null && newBoard.isNotEmpty && newBoard != currentBoard) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_board', newBoard);
+      setState(() {
+        currentBoard = newBoard;
+      });
+      SheetService.syncUserProfile(
+        name: currentName,
+        phone: currentPhone,
+        email: currentEmail.isNotEmpty ? currentEmail : "student@purix.edu",
+        selectedClass: currentClass,
+        selectedBoard: newBoard,
+      );
+      _loadLearningProgress(forceRefresh: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Switched to $newBoard • Content updated"),
+            backgroundColor: const Color(0xFF00FF88),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _changeClass() async {
+    final newClass = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ClassScreen(
+          userName: currentName,
+          currentClass: currentClass,
+          selectedBoard: currentBoard,
+          isSwitching: true,
+        ),
+      ),
+    );
+
+    if (newClass != null && newClass.isNotEmpty && newClass != currentClass) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_class', newClass);
       setState(() {
         currentClass = newClass;
       });
-      _loadLearningProgress(forceRefresh: false);
+      _loadLearningProgress(forceRefresh: true);
     }
   }
 
@@ -508,15 +550,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // Edit Profile Dialog (Warning free, neonCyan unused removed)
   void _showEditProfileDialog() {
-    const neonCyan = Color(0xFF00F0FF);
     const neonGold = Color(0xFFFFB800);
 
     final nameCtrl = TextEditingController(text: currentName);
     final phoneCtrl = TextEditingController(text: currentPhone);
     final emailCtrl = TextEditingController(text: currentEmail);
+    String selectedDialogBoard = currentBoard;
+    String selectedDialogClass = currentClass;
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
+
+    final availableBoards = [
+      'Bihar Board (BSEB)',
+      'CBSE Board',
+      'Jharkhand Board (JAC)',
+    ];
+
+    final availableClasses = [
+      'Class 8',
+      'Class 9',
+      'Class 10th',
+      'Board Special',
+    ];
+
+    if (!availableBoards.contains(selectedDialogBoard)) {
+      selectedDialogBoard = availableBoards.first;
+    }
+    if (!availableClasses.contains(selectedDialogClass)) {
+      selectedDialogClass = availableClasses[2];
+    }
 
     showDialog(
       context: context,
@@ -555,15 +619,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "Update your name, 10-digit WhatsApp number and email to maintain synced progress and verification.",
+                        "Update your name, 10-digit WhatsApp number, email, board, and class to maintain synced progress.",
                         style: TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                       const SizedBox(height: 16),
-                      // Cadet Name Field
-                      const Text(
-                        "Cadet Name",
-                        style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("Cadet Name", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: nameCtrl,
@@ -575,32 +635,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           filled: true,
                           fillColor: const Color(0xFF101726),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: neonGold),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: neonGold)),
                         ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return "Name cannot be empty";
-                          }
-                          return null;
-                        },
+                        validator: (val) => (val == null || val.trim().isEmpty) ? "Name cannot be empty" : null,
                       ),
                       const SizedBox(height: 12),
-                      // WhatsApp Phone Field
-                      const Text(
-                        "WhatsApp Number (10 Digits)",
-                        style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("WhatsApp Number (10 Digits)", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: phoneCtrl,
@@ -615,33 +657,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           filled: true,
                           fillColor: const Color(0xFF101726),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: neonGold),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: neonGold)),
                         ),
                         validator: (val) {
                           final clean = (val ?? '').replaceAll(RegExp(r'\D'), '');
-                          if (clean.length != 10) {
-                            return "Enter a valid 10-digit phone number";
-                          }
-                          return null;
+                          return clean.length != 10 ? "Enter a valid 10-digit phone number" : null;
                         },
                       ),
                       const SizedBox(height: 12),
-                      // Email Field
-                      const Text(
-                        "Email Address",
-                        style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("Email Address", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: emailCtrl,
@@ -654,28 +680,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           filled: true,
                           fillColor: const Color(0xFF101726),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: neonGold),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: neonGold)),
                         ),
                         validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return "Email cannot be empty";
-                          }
-                          if (!val.contains('@') || !val.contains('.')) {
+                          if (val != null && val.trim().isNotEmpty && !val.contains('@')) {
                             return "Enter a valid email address";
                           }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 12),
+                      const Text("Education Board", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF101726),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedDialogBoard,
+                            isExpanded: true,
+                            dropdownColor: const Color(0xFF0F172A),
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            icon: const Icon(Icons.arrow_drop_down_rounded, color: neonGold),
+                            items: availableBoards.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setDialogState(() => selectedDialogBoard = val);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text("Cadet Class", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF101726),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedDialogClass,
+                            isExpanded: true,
+                            dropdownColor: const Color(0xFF0F172A),
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            icon: const Icon(Icons.arrow_drop_down_rounded, color: neonGold),
+                            items: availableClasses.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setDialogState(() => selectedDialogClass = val);
+                            },
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -683,14 +745,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                  onPressed: () => Navigator.pop(dialogCtx),
                   child: const Text("CANCEL", style: TextStyle(color: Colors.white54, fontSize: 11)),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neonGold,
+                    foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),
                   onPressed: isSaving
                       ? null
@@ -706,30 +769,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           await prefs.setString('user_name', newName);
                           await prefs.setString('user_phone', newPhone);
                           await prefs.setString('user_email', newEmail);
+                          await prefs.setString('user_board', selectedDialogBoard);
+                          await prefs.setString('user_class', selectedDialogClass);
+
+                          SheetService.syncUserProfile(
+                            name: newName,
+                            phone: newPhone,
+                            email: newEmail.isNotEmpty ? newEmail : "student@purix.edu",
+                            selectedClass: selectedDialogClass,
+                            selectedBoard: selectedDialogBoard,
+                            forceRefresh: true,
+                          );
 
                           if (mounted) {
                             setState(() {
                               currentName = newName;
                               currentPhone = newPhone;
                               currentEmail = newEmail;
+                              currentBoard = selectedDialogBoard;
+                              currentClass = selectedDialogClass;
                             });
+                            _loadLearningProgress(forceRefresh: true);
                           }
 
-                          // Sync to Google Sheet in background
-                          SheetService.syncUserProfile(
-                            name: newName,
-                            phone: newPhone,
-                            email: newEmail,
-                            selectedClass: currentClass,
-                          ).then((status) {
-                            if (mounted) {
-                              setState(() {
-                                subscriptionStatus = status;
-                              });
-                            }
-                          }).catchError((_) {});
-
-                          if (mounted) {
+                          if (dialogCtx.mounted) {
                             Navigator.pop(dialogCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -741,11 +804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           }
                         },
                   icon: isSaving
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
                       : const Icon(Icons.check_rounded, color: Colors.black, size: 16),
                   label: Text(
                     isSaving ? "SAVING..." : "SAVE DETAILS",
@@ -791,10 +850,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: 40,
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
                   ),
                   CircleAvatar(
                     radius: 32,
@@ -811,8 +867,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'NODE: $currentClass  |  STATUS: $subscriptionStatus',
-                    style: const TextStyle(color: neonGreen, fontSize: 11, fontFamily: 'monospace'),
+                    'BOARD: $currentBoard  |  CLASS: $currentClass',
+                    style: const TextStyle(color: neonGreen, fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -828,7 +884,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                   const SizedBox(height: 16),
 
-                  // VIP Purix PRO Pass Card Inside Profile Sheet
+                  // Classroom Status Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -839,9 +895,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: neonGold.withOpacity(0.4)),
+                      border: Border.all(color: neonGold.withAlpha(100)),
                       boxShadow: [
-                        BoxShadow(color: neonGold.withOpacity(0.08), blurRadius: 15),
+                        BoxShadow(color: neonGold.withAlpha(20), blurRadius: 15),
                       ],
                     ),
                     child: Column(
@@ -852,10 +908,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.workspace_premium_rounded, color: neonGold, size: 20),
+                                Icon(Icons.shield_rounded, color: neonGold, size: 20),
                                 SizedBox(width: 6),
                                 Text(
-                                  "PURIX PRO PASS",
+                                  "CLASSROOM ENROLLMENT",
                                   style: TextStyle(color: neonGold, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                                 ),
                               ],
@@ -863,12 +919,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: neonGold.withOpacity(0.15),
+                                color: neonGold.withAlpha(38),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: neonGold.withOpacity(0.4)),
+                                border: Border.all(color: neonGold.withAlpha(100)),
                               ),
                               child: Text(
-                                isProOrActive ? 'ACTIVE 👑' : '₹599 PASS',
+                                isProOrActive ? 'ACTIVE CADET' : 'BATCH MATERIAL',
                                 style: const TextStyle(color: neonGold, fontSize: 9, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -876,25 +932,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          "• All Chapter Tests & Question Banks Unlocked\n• Handwritten Formula Sheets & PDF Notes\n• 100% Ad-Free Rapid Revision Access\n• Direct WhatsApp Mentor Guidance",
+                          "• All Chapter Tests & Question Banks Unlocked\n• Handwritten Formula Sheets & PDF Notes\n• 100% Ad-Free Rapid Revision Access\n• Direct Mentor Guidance at Center",
                           style: TextStyle(color: Colors.white70, fontSize: 10.5, height: 1.45),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
-                          height: 38,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: neonGold,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () {
                               Navigator.pop(sheetContext);
                               _showPaymentDialog();
                             },
-                            icon: const Icon(Icons.workspace_premium_rounded, color: Colors.black, size: 16),
+                            icon: const Icon(Icons.school_rounded, color: Colors.black, size: 16),
                             label: Text(
-                              isProOrActive ? "VIEW MEMBERSHIP DETAILS" : "UPGRADE TO PRO PASS (₹599)",
+                              isProOrActive ? "CLASSROOM STATUS: VERIFIED" : "VISIT INSTITUTE / CONTACT CENTER",
                               style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10.5),
                             ),
                           ),
@@ -904,7 +960,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // 1. Edit Cadet Details Button (Restored!)
+                  // 1. Edit Cadet Details Button
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFF101726),
@@ -913,9 +969,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     child: ListTile(
                       leading: const Icon(Icons.edit_note_rounded, color: neonCyan, size: 22),
-                      title: const Text('Edit Cadet Details', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Update name, phone number or email', style: TextStyle(color: Colors.white54, fontSize: 10)),
-                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 12),
+                      title: const Text("Edit Cadet Details", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Update Name, Mobile, Email & Settings", style: TextStyle(color: Colors.white54, fontSize: 10.5)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
                       onTap: () {
                         Navigator.pop(sheetContext);
                         _showEditProfileDialog();
@@ -924,7 +980,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 2. Switch Target Class Button
+                  // 2. Edit Board Button
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFF101726),
@@ -932,10 +988,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       border: Border.all(color: Colors.white12),
                     ),
                     child: ListTile(
-                      leading: const Icon(Icons.refresh_rounded, color: neonCyan, size: 20),
-                      title: const Text('Switch Target Class', style: TextStyle(color: Colors.white, fontSize: 12)),
-                      subtitle: Text('Current: $currentClass', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 12),
+                      leading: const Icon(Icons.account_balance_rounded, color: Color(0xFF00FF88), size: 20),
+                      title: Text("Change Education Board ($currentBoard)", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Switch Bihar, CBSE or Jharkhand Board", style: TextStyle(color: Colors.white54, fontSize: 10.5)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _changeBoard();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 3. Edit Class Button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF101726),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.school_rounded, color: neonCyan, size: 20),
+                      title: Text("Switch Class ($currentClass)", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Switch Class 8, 9, 10th or Board Special", style: TextStyle(color: Colors.white54, fontSize: 10.5)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
                       onTap: () {
                         Navigator.pop(sheetContext);
                         _changeClass();
@@ -944,7 +1020,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 3. Help Desk & WhatsApp Support
+                  // 4. Purix Classroom Center Support
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFF101726),
@@ -953,42 +1029,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     child: ListTile(
                       leading: const Icon(Icons.support_agent_rounded, color: neonGold, size: 22),
-                      title: const Text('Purix Help Desk & Support', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Chat on WhatsApp or Call +91 9508774890', style: TextStyle(color: Colors.white54, fontSize: 10)),
-                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 12),
+                      title: const Text("Contact Purix Center", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Talk to teachers & mentors directly", style: TextStyle(color: Colors.white54, fontSize: 10.5)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
                       onTap: () {
                         Navigator.pop(sheetContext);
                         _openWhatsApp();
                       },
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
                   // Logout Button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF101726),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
-                    ),
-                    child: ListTile(
-                      leading: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
-                      title: const Text('Logout Session', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 12),
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
-                        if (!mounted) return;
+                  TextButton.icon(
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.clear();
+                      if (sheetContext.mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(builder: (context) => const LoginScreen()),
                           (route) => false,
                         );
-                      },
-                    ),
+                      }
+                    },
+                    icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 16),
+                    label: const Text("LOGOUT CADET SESSION", style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   ),
-                  const SizedBox(height: 10),
                 ],
               ),
             );
@@ -1004,10 +1071,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Container(
         width: 32,
         height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0088FF).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFF0088FF).withAlpha(50), borderRadius: BorderRadius.circular(8)),
         child: const Icon(Icons.science_rounded, color: Color(0xFF00A2FF), size: 18),
       );
     }
@@ -1015,10 +1079,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Container(
         width: 32,
         height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFFBF00FF).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFFBF00FF).withAlpha(50), borderRadius: BorderRadius.circular(8)),
         child: const Icon(Icons.public_rounded, color: Color(0xFFD946EF), size: 18),
       );
     }
@@ -1026,20 +1087,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Container(
         width: 32,
         height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFF00FF88).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFF00FF88).withAlpha(50), borderRadius: BorderRadius.circular(8)),
         child: const Icon(Icons.calculate_rounded, color: Color(0xFF00FF88), size: 18),
       );
     }
     return Container(
       width: 32,
       height: 32,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFB800).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFFFB800).withAlpha(50), borderRadius: BorderRadius.circular(8)),
       child: const Icon(Icons.translate_rounded, color: Color(0xFFFFB800), size: 18),
     );
   }
@@ -1053,17 +1108,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: darkVoid,
-      // 5-Tab Fixed Bottom Navigation Bar matching Reference Image
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF040814),
-          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1)),
+          border: Border(top: BorderSide(color: Colors.white.withAlpha(25), width: 1)),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.8),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
-            )
+            BoxShadow(color: Colors.black.withAlpha(200), blurRadius: 20, offset: const Offset(0, -6)),
           ],
         ),
         child: SafeArea(
@@ -1071,7 +1121,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
             child: Row(
               children: [
-                // Tab 1: Home (Active with gold line underneath)
                 Expanded(
                   child: InkWell(
                     onTap: () {},
@@ -1082,10 +1131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           const Icon(Icons.home_rounded, color: neonGold, size: 22),
                           const SizedBox(height: 2),
-                          const Text(
-                            "Home",
-                            style: TextStyle(color: neonGold, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
+                          const Text("Home", style: TextStyle(color: neonGold, fontSize: 10, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
                           Container(width: 18, height: 2, decoration: BoxDecoration(color: neonGold, borderRadius: BorderRadius.circular(2))),
                         ],
@@ -1093,7 +1139,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-                // Tab 2: MCQ Test (Rocket)
                 Expanded(
                   child: _bottomNavItem(
                     title: 'MCQ Test',
@@ -1103,7 +1148,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () => _navigateToModule('mcq'),
                   ),
                 ),
-                // Tab 3: Practice (Open Book)
                 Expanded(
                   child: _bottomNavItem(
                     title: 'Practice',
@@ -1113,7 +1157,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () => _navigateToModule('practice'),
                   ),
                 ),
-                // Tab 4: Notes (Document)
                 Expanded(
                   child: _bottomNavItem(
                     title: 'Notes',
@@ -1123,13 +1166,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () => _navigateToModule('notes'),
                   ),
                 ),
-                // Tab 5: Free Matrix (Compass)
                 Expanded(
                   child: _bottomNavItem(
                     title: 'Free Matrix',
                     secCode: 'SEC.04',
                     icon: Icons.explore_rounded,
-                    color: neonCyan,
+                    color: const Color(0xFF00FF88),
                     onTap: () => _navigateToModule('free'),
                   ),
                 ),
@@ -1138,14 +1180,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      // Top AppBar matching reference image (Logo + PURIX ACADEMY + Class Selector + Avatar)
       appBar: AppBar(
         backgroundColor: const Color(0xFF040814),
         elevation: 0,
         titleSpacing: 10,
         title: Row(
           children: [
-            // User requested Logo Image on left of Purix Academy
             ClipOval(
               child: Image.asset(
                 'assets/logo.png',
@@ -1178,24 +1218,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          "PURIX ",
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5),
-                        ),
-                        Text(
-                          "ACADEMY",
-                          style: TextStyle(color: neonGold, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5),
-                        ),
+                        const Text("PURIX ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5)),
+                        Text("ACADEMY", style: TextStyle(color: neonGold, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5)),
                       ],
                     ),
                     Text(
                       "NEW WAY OF LEARNING",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
+                      style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 7.5, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                     ),
                   ],
                 ),
@@ -1204,56 +1233,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Class Selector Pill
-          InkWell(
-            onTap: _changeClass,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0E1729),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.school_rounded, color: neonCyan, size: 13),
-                  const SizedBox(width: 3),
-                  Text(
-                    currentClass,
-                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 1),
-                  const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 13),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // User Avatar Initial Button
+          // Pure Circular Cadet Avatar Button (No text label as requested)
           InkWell(
             onTap: _openProfileSheet,
             borderRadius: BorderRadius.circular(20),
-            child: CircleAvatar(
-              radius: 15,
-              backgroundColor: const Color(0xFF1A253A),
-              child: Text(
-                currentName.isNotEmpty ? currentName[0].toUpperCase() : 'A',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+            child: Container(
+              margin: const EdgeInsets.only(right: 14),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: neonCyan,
+                child: Text(
+                  currentName.isNotEmpty ? currentName.trim().substring(0, 1).toUpperCase() : 'A',
+                  style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.w900),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
         ],
       ),
-      // Pure Scrollview without refresh indicator to prevent accidental API calls
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Executive Hero Banner (Matches Reference Image)
+            // 1. Executive Hero Banner
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -1264,9 +1267,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF0099FF).withOpacity(0.4)),
+                border: Border.all(color: const Color(0xFF0099FF).withAlpha(100)),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFF0099FF).withOpacity(0.12), blurRadius: 25),
+                  BoxShadow(color: const Color(0xFF0099FF).withAlpha(30), blurRadius: 25),
                 ],
               ),
               child: Row(
@@ -1276,52 +1279,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "${_getGreeting()},",
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          "$currentName!",
-                          style: const TextStyle(color: neonGold, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                        ),
+                        Text("${_getGreeting()},", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text("$currentName!", style: const TextStyle(color: neonGold, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                         const SizedBox(height: 6),
-                        Text(
-                          "\"${_getDailyQuote()}\"",
-                          style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10.5, fontStyle: FontStyle.italic),
-                        ),
+                        Text("\"${_getDailyQuote()}\"", style: const TextStyle(color: Colors.white70, fontSize: 11, fontStyle: FontStyle.italic)),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Target Board Graphic + "Keep Going"
-                  Column(
-                    children: [
-                      const Text(
-                        "Keep Going ~",
-                        style: TextStyle(color: neonGold, fontSize: 12, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF1A1305),
-                          border: Border.all(color: neonGold, width: 2),
-                          boxShadow: [
-                            BoxShadow(color: neonGold.withOpacity(0.35), blurRadius: 18),
-                          ],
-                        ),
-                        child: const Icon(Icons.track_changes_rounded, color: neonGold, size: 34),
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
 
-            // 2. Metrics Row (2 Cards: TESTS COMPLETED & TARGET GOAL)
+            // 2. Metrics Row (Both cards pure stats cards, arrow-free)
             Row(
               children: [
                 // Card 1: TESTS COMPLETED
@@ -1331,7 +1301,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF0A1324),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: neonGreen.withOpacity(0.4)),
+                      border: Border.all(color: neonGreen.withAlpha(100)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1342,10 +1312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Container(
                                 width: 34,
                                 height: 34,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: neonGreen.withOpacity(0.15),
-                                ),
+                                decoration: BoxDecoration(shape: BoxShape.circle, color: neonGreen.withAlpha(38)),
                                 child: const Icon(Icons.emoji_events_rounded, color: neonGreen, size: 18),
                               ),
                               const SizedBox(width: 8),
@@ -1356,42 +1323,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   children: [
                                     const FittedBox(
                                       fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        "TESTS COMPLETED",
-                                        style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold),
-                                      ),
+                                      child: Text("TESTS COMPLETED", style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold)),
                                     ),
                                     FittedBox(
                                       fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        "$completedQuizCount",
-                                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                      ),
+                                      child: Text("$completedQuizCount", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
                                     ),
-                                    const Text(
-                                      "/ 0",
-                                      style: TextStyle(color: Colors.white38, fontSize: 9),
-                                    ),
+                                    const Text("/ 0", style: TextStyle(color: Colors.white38, fontSize: 9)),
                                   ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 12),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Card 2: TARGET GOAL
+
+                // Card 2: TARGET GOAL (Arrow completely removed)
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0A1324),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: neonCyan.withOpacity(0.4)),
+                      border: Border.all(color: neonCyan.withAlpha(100)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1402,10 +1360,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Container(
                                 width: 36,
                                 height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: neonCyan.withOpacity(0.15),
-                                ),
+                                decoration: BoxDecoration(shape: BoxShape.circle, color: neonCyan.withAlpha(38)),
                                 child: const Icon(Icons.adjust_rounded, color: neonCyan, size: 20),
                               ),
                               const SizedBox(width: 8),
@@ -1413,21 +1368,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      "TARGET GOAL",
-                                      style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold),
-                                    ),
+                                    const Text("TARGET GOAL", style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold)),
                                     Row(
                                       children: [
-                                        const Text(
-                                          "95%+",
-                                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
-                                        ),
+                                        const Text("95%+", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          "Board",
-                                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9),
-                                        ),
+                                        Text("Board", style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 9)),
                                       ],
                                     ),
                                     const SizedBox(height: 3),
@@ -1449,7 +1395,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 12),
                       ],
                     ),
                   ),
@@ -1494,22 +1439,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 14),
 
-            // 4. LEARNING PROGRESS Card (With Scrollable Subject List as Requested!)
+            // 4. LEARNING PROGRESS Card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFF08101E),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: neonCyan.withOpacity(0.2)),
+                border: Border.all(color: neonCyan.withAlpha(50)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20),
+                  BoxShadow(color: Colors.black.withAlpha(128), blurRadius: 20),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1517,10 +1461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Icon(Icons.bar_chart_rounded, color: neonCyan, size: 18),
                           SizedBox(width: 6),
-                          Text(
-                            "LEARNING PROGRESS",
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                          ),
+                          Text("LEARNING PROGRESS", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                         ],
                       ),
                       Container(
@@ -1543,19 +1484,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-
-                  // Overall Syllabus Progress Bar
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Overall Syllabus Done",
-                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      Text(
+                        "$totalCompletedChapters of $totalSyllabusChapters chapters mastered",
+                        style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
                       ),
                       Text(
-                        "$overallPercentage% ($totalCompletedChapters/$totalSyllabusChapters Chapters)",
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        "$overallPercentage% COMPLETE",
+                        style: const TextStyle(color: neonGreen, fontSize: 11, fontWeight: FontWeight.w900, fontFamily: 'monospace'),
                       ),
                     ],
                   ),
@@ -1571,7 +1510,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // SCROLLABLE SUBJECT LIST (Supports Science, Social Science, Math, Hindi, Sanskrit & more!)
+                  // SCROLLABLE SUBJECT LIST
                   SizedBox(
                     height: 180,
                     child: isLoadingProgress
@@ -1621,14 +1560,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white.withOpacity(0.06),
+                                                    color: Colors.white.withAlpha(15),
                                                     borderRadius: BorderRadius.circular(4),
                                                   ),
-                                                  child: Text(
-                                                    level,
-                                                    style: const TextStyle(color: Colors.white70, fontSize: 8),
-                                                    maxLines: 1,
-                                                  ),
+                                                  child: Text(level, style: const TextStyle(color: Colors.white70, fontSize: 8), maxLines: 1),
                                                 ),
                                               ],
                                             ),
@@ -1637,15 +1572,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
-                                                "$pct%",
-                                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
+                                              Text("$pct%", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                               const SizedBox(width: 3),
-                                              Text(
-                                                "($doneC/$totalC)",
-                                                style: const TextStyle(color: Colors.white38, fontSize: 10),
-                                              ),
+                                              Text("($doneC/$totalC)", style: const TextStyle(color: Colors.white38, fontSize: 10)),
                                               const SizedBox(width: 2),
                                               const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 10),
                                             ],
@@ -1669,45 +1598,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             },
                           ),
                   ),
-                  const SizedBox(height: 8),
-
-                  // Bottom Motivational Banner
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0A1324),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.track_changes_rounded, color: neonGold, size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Small steps everyday lead to big results.",
-                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                "You're doing great! Keep it up!",
-                                style: TextStyle(color: Colors.white54, fontSize: 9),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 12),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
 
-            // 5. Need Help? Help Desk Banner (Matches Reference Image)
+            // 5. Help Desk Banner
             InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: () => _openWhatsApp(),
@@ -1721,17 +1617,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     end: Alignment.centerRight,
                   ),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: neonGold.withOpacity(0.4)),
+                  border: Border.all(color: neonGold.withAlpha(100)),
                 ),
                 child: Row(
                   children: [
                     Container(
                       width: 36,
                       height: 36,
-                      decoration: BoxDecoration(
-                        color: neonGold.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      decoration: BoxDecoration(color: neonGold.withAlpha(50), borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.support_agent_rounded, color: neonGold, size: 20),
                     ),
                     const SizedBox(width: 10),
@@ -1739,14 +1632,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Need Help?",
-                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            "Get instant support for your queries.",
-                            style: TextStyle(color: Colors.white70, fontSize: 10),
-                          ),
+                          Text("Need Help?", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text("Get instant support for your queries.", style: TextStyle(color: Colors.white70, fontSize: 10)),
                         ],
                       ),
                     ),
@@ -1758,10 +1645,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       onPressed: () => _openWhatsApp(),
                       icon: const Icon(Icons.chat_bubble_rounded, color: Colors.black, size: 14),
-                      label: const Text(
-                        "HELP DESK",
-                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 10),
-                      ),
+                      label: const Text("HELP DESK", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 10)),
                     ),
                   ],
                 ),
@@ -1789,7 +1673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF0A1324),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withAlpha(100)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1798,36 +1682,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color.withOpacity(0.2),
-                  ),
-                  child: Icon(icon, color: color, size: 16),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: color.withAlpha(38)),
+                  child: Icon(icon, color: color, size: 18),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.3), size: 10),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withAlpha(15)),
+                  child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 10),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                title,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                maxLines: 1,
-              ),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                subtitle,
-                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8),
-                maxLines: 1,
-              ),
-            ),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace')),
           ],
         ),
       ),
@@ -1848,16 +1719,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white70, size: 20),
+            Icon(icon, color: color, size: 20),
             const SizedBox(height: 2),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              secCode,
-              style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
-            ),
+            Text(title, style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 1),
+            Text(secCode, style: TextStyle(color: color.withAlpha(128), fontSize: 7, fontFamily: 'monospace')),
           ],
         ),
       ),

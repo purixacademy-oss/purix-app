@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/sheet_service.dart';
 import 'sub_subject_screen.dart';
 
 class SubjectScreen extends StatefulWidget {
   final String selectedClass;
-  final String mode; // 'mcq', 'practice', या 'notes'
+  final String mode; // 'mcq', 'practice', ya 'notes'
 
   const SubjectScreen({
     super.key,
@@ -19,7 +18,6 @@ class SubjectScreen extends StatefulWidget {
 
 class _SubjectScreenState extends State<SubjectScreen> {
   bool _isLoading = true;
-  String _userSubscription = 'FREE';
   List<String> _subjectsList = [];
 
   @override
@@ -48,13 +46,6 @@ class _SubjectScreenState extends State<SubjectScreen> {
   Future<void> _loadInitialData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    
-    setState(() {
-      _userSubscription = prefs.getString('user_sub') ?? 'FREE';
-    });
 
     final targetSheet = _getTargetSheetName();
     final data = await SheetService.fetchSheetData(targetSheet);
@@ -159,12 +150,12 @@ class _SubjectScreenState extends State<SubjectScreen> {
                       decoration: BoxDecoration(
                         color: cardBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: themeGlow.withOpacity(0.3), width: 1.2),
+                        border: Border.all(color: themeGlow.withAlpha(76), width: 1.2),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         leading: CircleAvatar(
-                          backgroundColor: themeGlow.withOpacity(0.12),
+                          backgroundColor: themeGlow.withAlpha(30),
                           child: Icon(
                             widget.mode == 'mcq'
                                 ? Icons.quiz
@@ -181,11 +172,11 @@ class _SubjectScreenState extends State<SubjectScreen> {
                         ),
                         subtitle: Text(
                           "Tap to view chapters & topics",
-                          style: TextStyle(color: themeGlow.withOpacity(0.7), fontSize: 10, fontFamily: 'monospace'),
+                          style: TextStyle(color: themeGlow.withAlpha(180), fontSize: 10, fontFamily: 'monospace'),
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
                         onTap: () {
-                          // सब्जेक्ट पर क्लिक करते ही यूजर SubSubjectScreen पर चला जाएगा
+                          // SubSubjectScreen navigation with correct parameters
                           Navigator.push(
                             context,
                             MaterialPageRoute(

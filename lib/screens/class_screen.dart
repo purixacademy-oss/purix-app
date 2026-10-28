@@ -1,41 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/sheet_service.dart';
 import 'dashboard_screen.dart';
+import 'board_screen.dart';
 
-class ClassScreen extends StatelessWidget {
+class ClassScreen extends StatefulWidget {
   final String userName;
   final String? currentClass;
+  final String? selectedBoard;
+  final bool isSwitching;
 
-  const ClassScreen({super.key, required this.userName, this.currentClass});
+  const ClassScreen({
+    super.key,
+    required this.userName,
+    this.currentClass,
+    this.selectedBoard,
+    this.isSwitching = false,
+  });
+
+  @override
+  State<ClassScreen> createState() => _ClassScreenState();
+}
+
+class _ClassScreenState extends State<ClassScreen> {
+  late String _board;
+
+  @override
+  void initState() {
+    super.initState();
+    _board = widget.selectedBoard ?? 'Bihar Board (BSEB)';
+    _loadBoardFromPrefs();
+  }
+
+  Future<void> _loadBoardFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('user_board');
+    if (saved != null && saved.isNotEmpty && mounted) {
+      setState(() => _board = saved);
+    }
+  }
 
   Future<void> _selectClass(BuildContext context, String selectedClass) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_logged_in', true);
     await prefs.setString('user_class', selectedClass);
+    await prefs.setString('user_board', _board);
+
+    final phone = prefs.getString('user_phone') ?? '';
+    final email = prefs.getString('user_email') ?? 'student@purix.edu';
+    if (phone.isNotEmpty) {
+      SheetService.syncUserProfile(
+        name: widget.userName,
+        phone: phone,
+        email: email,
+        selectedClass: selectedClass,
+        selectedBoard: _board,
+      );
+    }
 
     if (!context.mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DashboardScreen(
-          selectedClass: selectedClass,
-          userName: userName,
+    if (widget.isSwitching) {
+      Navigator.pop(context, selectedClass);
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardScreen(
+            selectedClass: selectedClass,
+            userName: widget.userName,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     const darkVoid = Color(0xFF070B14);
     const goldAccent = Color(0xFFD4AF37);
+    const neonCyan = Color(0xFF00F0FF);
+    const cardBg = Color(0xFF0E1626);
 
     final classes = [
-      {'title': 'Class 8', 'desc': 'Foundation, Concepts & Practice'},
-      {'title': 'Class 9', 'desc': 'Pre-Board Core Concepts & Notes'},
-      {'title': 'Class 10th', 'desc': 'Board Exam Mastery, High-Yield Qs'},
-      {'title': 'Board Special', 'desc': 'Target Crash Course, Formulas & Mock Tests'},
+      {'name': 'Class 8', 'desc': 'Foundations & Concepts', 'icon': Icons.lightbulb_outline},
+      {'name': 'Class 9', 'desc': 'Core Syllabus & Concepts', 'icon': Icons.menu_book},
+      {'name': 'Class 10th', 'desc': 'Board Target & Mock Drills', 'icon': Icons.school},
+      {'name': 'Board Special', 'desc': 'Crash Course & High-Yield', 'icon': Icons.star_border},
     ];
 
     return Scaffold(
@@ -44,123 +95,142 @@ class ClassScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        leading: widget.isSwitching
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 20),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: const Text(
-          'SELECT YOUR CLASS',
+          'SELECT CADET CLASS',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w900,
-            letterSpacing: 2,
+            letterSpacing: 1.5,
             color: goldAccent,
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome, $userName 👋',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Select your standard to personalize your learning dashboard.',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView.separated(
-                itemCount: classes.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final item = classes[index];
-                  final isSpecial = item['title'] == 'Board Special';
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: isSpecial 
-                          ? goldAccent.withOpacity(0.12) 
-                          : const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSpecial 
-                            ? goldAccent 
-                            : goldAccent.withOpacity(0.25),
-                        width: isSpecial ? 1.8 : 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: goldAccent.withOpacity(isSpecial ? 0.15 : 0.05),
-                          blurRadius: isSpecial ? 15 : 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      title: Row(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: neonCyan.withAlpha(76)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance_rounded, color: neonCyan, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item['title']!,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: isSpecial ? goldAccent : Colors.white,
-                            ),
+                          const Text("ACTIVE BOARD", style: TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace')),
+                          Text(_board, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final chosen = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BoardScreen(userName: widget.userName, currentBoard: _board, isSwitching: true),
                           ),
-                          if (isSpecial) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: goldAccent,
-                                borderRadius: BorderRadius.circular(8),
+                        );
+                        if (chosen != null && chosen.isNotEmpty) {
+                          setState(() => _board = chosen);
+                        }
+                      },
+                      child: const Text("CHANGE", style: TextStyle(color: neonCyan, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'TARGET CLASS',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.95,
+                  ),
+                  itemCount: classes.length,
+                  itemBuilder: (context, index) {
+                    final item = classes[index];
+                    final isSelected = widget.currentClass == item['name'];
+
+                    return InkWell(
+                      onTap: () => _selectClass(context, item['name'] as String),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected ? neonCyan : Colors.white12,
+                            width: isSelected ? 2.0 : 1.0,
+                          ),
+                          boxShadow: isSelected
+                              ? [BoxShadow(color: neonCyan.withAlpha(50), blurRadius: 16)]
+                              : [],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              item['icon'] as IconData,
+                              size: 36,
+                              color: isSelected ? neonCyan : goldAccent,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              item['name'] as String,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: const Text(
-                                'HOT',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.black,
-                                ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item['desc'] as String,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          item['desc']!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.6),
-                          ),
                         ),
                       ),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: goldAccent,
-                        size: 18,
-                      ),
-                      onTap: () => _selectClass(context, item['title']!),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

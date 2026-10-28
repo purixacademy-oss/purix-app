@@ -110,7 +110,7 @@ class _FreeContentScreenState extends State<FreeContentScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: neonCyan.withOpacity(0.3), width: 1),
+                        side: BorderSide(color: neonCyan.withValues(alpha: 0.3), width: 1),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -124,7 +124,7 @@ class _FreeContentScreenState extends State<FreeContentScreen> {
                         ),
                         subtitle: Text(
                           'Subject: $subjectName (FREE ACCESS)',
-                          style: TextStyle(color: neonCyan.withOpacity(0.8), fontSize: 11, fontFamily: 'monospace'),
+                          style: TextStyle(color: neonCyan.withValues(alpha: 0.8), fontSize: 11, fontFamily: 'monospace'),
                         ),
                         trailing: ElevatedButton(
                           style: ElevatedButton.styleFrom(

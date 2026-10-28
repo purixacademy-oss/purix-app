@@ -167,9 +167,9 @@ class _QuizScreenState extends State<QuizScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: neonGreen.withOpacity( 0.1),
+                color: neonGreen.withValues( alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: neonGreen.withOpacity( 0.5)),
+                border: Border.all(color: neonGreen.withValues( alpha: 0.5)),
               ),
               child: Text(
                 '$_score / ${_questions.length}',
@@ -201,7 +201,7 @@ class _QuizScreenState extends State<QuizScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: neonCyan.withOpacity( 0.2),
+              backgroundColor: neonCyan.withValues( alpha: 0.2),
               foregroundColor: neonCyan,
               side: const BorderSide(color: neonCyan),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -324,9 +324,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: neonGreen.withOpacity( 0.15),
+                    color: neonGreen.withValues( alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: neonGreen.withOpacity( 0.4)),
+                    border: Border.all(color: neonGreen.withValues( alpha: 0.4)),
                   ),
                   child: Text(
                     'SET 0${widget.quizSetNumber}',
@@ -413,10 +413,10 @@ class _QuizScreenState extends State<QuizScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D1524),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: neonCyan.withOpacity( 0.35), width: 1.2),
+                border: Border.all(color: neonCyan.withValues( alpha: 0.35), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: neonCyan.withOpacity( 0.08),
+                    color: neonCyan.withValues( alpha: 0.08),
                     blurRadius: 12,
                     offset: const Offset(0, 3),
                   ),
@@ -428,7 +428,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   Text(
                     '// QUERY MATRIX',
                     style: TextStyle(
-                      color: neonCyan.withOpacity( 0.7),
+                      color: neonCyan.withValues( alpha: 0.7),
                       fontSize: 10,
                       fontFamily: 'monospace',
                       letterSpacing: 1.5,
@@ -466,12 +466,12 @@ class _QuizScreenState extends State<QuizScreen> {
 
                   if (_answered) {
                     if (letter == correctLetter) {
-                      cardBg = neonGreen.withOpacity( 0.12);
+                      cardBg = neonGreen.withValues( alpha: 0.12);
                       borderColor = neonGreen;
                       badgeColor = neonGreen;
                       textColor = Colors.white;
                     } else if (letter == _selectedOptionLetter) {
-                      cardBg = neonRed.withOpacity( 0.12);
+                      cardBg = neonRed.withValues( alpha: 0.12);
                       borderColor = neonRed;
                       badgeColor = neonRed;
                       textColor = Colors.white;
@@ -499,9 +499,9 @@ class _QuizScreenState extends State<QuizScreen> {
                                 height: 28,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: badgeColor.withOpacity( 0.15),
+                                  color: badgeColor.withValues( alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: badgeColor.withOpacity( 0.4)),
+                                  border: Border.all(color: badgeColor.withValues( alpha: 0.4)),
                                 ),
                                 child: Text(
                                   letter,
@@ -547,7 +547,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF101726),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: neonGold.withOpacity( 0.4)),
+                  border: Border.all(color: neonGold.withValues( alpha: 0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +580,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 child: ElevatedButton(
                   onPressed: _nextQuestion,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: neonCyan.withOpacity( 0.2),
+                    backgroundColor: neonCyan.withValues( alpha: 0.2),
                     foregroundColor: neonCyan,
                     side: const BorderSide(color: neonCyan, width: 1.2),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

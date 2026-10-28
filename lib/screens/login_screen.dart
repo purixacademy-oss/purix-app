@@ -4,10 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 import '../services/sheet_service.dart';
-import 'class_screen.dart';
+import 'board_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,27 +19,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   final TextEditingController _mobileController = TextEditingController();
   
-  // 🔴 AAPKA GOOGLE APPS SCRIPT WEB APP URL
-  final String scriptUrl = "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec"; 
+  String get scriptUrl => SheetService.studentDataUrl; 
 
-  // DEVICE INFO NIKALNE KA FUNCTION
   Future<String> _getDeviceInfo() async {
-    final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     try {
-      if (Platform.isAndroid) {
-        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        return "${androidInfo.brand} ${androidInfo.model}"; 
-      } else if (Platform.isIOS) {
-        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        return "${iosInfo.name} ${iosInfo.model}";
-      }
+      return "${Platform.operatingSystem.toUpperCase()} Device";
     } catch (e) {
-      return "Unknown Device";
+      return "Android Mobile";
     }
-    return "Unknown Device";
   }
 
-  // 1. GOOGLE SIGN-IN
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
@@ -59,28 +47,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 2. MOBILE NUMBER POPUP
   void _showMobileNumberPopup(String name, String email) {
     const neonCyan = Color(0xFF00F0FF);
-    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF0B111E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: neonCyan, width: 1.5),
-          ),
-          title: const Text(
-            '// VERIFICATION REQUIRED',
-            style: TextStyle(fontSize: 14, fontFamily: 'monospace', letterSpacing: 1.5, color: neonCyan, fontWeight: FontWeight.bold),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: neonCyan)),
+          title: const Text('PURIX CADET REGISTRATION', style: TextStyle(color: neonCyan, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Welcome $name!\nEnter WhatsApp number to secure your Purix ID.", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Text('Welcome Cadet, $name!', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text('Enter 10-digit WhatsApp number to link your progress report.', style: TextStyle(color: Colors.white70, fontSize: 11)),
               const SizedBox(height: 16),
               TextField(
                 controller: _mobileController,
@@ -89,12 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: const TextStyle(color: Colors.white, letterSpacing: 2),
                 decoration: InputDecoration(
                   counterText: "",
-                  hintText: "10-Digit Mobile Number",
-                  hintStyle: const TextStyle(color: Colors.white30),
+                  prefixText: "+91 ",
+                  prefixStyle: const TextStyle(color: neonCyan, fontWeight: FontWeight.bold),
+                  hintText: "9876543210",
+                  hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 0),
                   filled: true,
-                  fillColor: const Color(0xFF070B14),
-                  prefixIcon: const Icon(Icons.phone_android, color: neonCyan),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
+                  fillColor: const Color(0xFF040814),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: neonCyan)),
                 ),
               ),
@@ -102,10 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                GoogleSignIn().signOut();
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
@@ -126,17 +107,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 3. MAIN LOGIC: CHECK EXISTING, BLOCK DEACTIVE, SEND POST REQUEST
   Future<void> _processUserAndLogin(String name, String email, String mobile) async {
     setState(() => _isLoading = true);
 
     try {
       final String currentDevice = await _getDeviceInfo();
-      
-      // 🚀 NAYA FIX: Current Time Generate karna sirf Verify Button par
       final String currentDateTime = DateTime.now().toString().substring(0, 16); 
       
-      // Step A: Fetch Sheet Data to check if old user or blocked
       final usersData = await SheetService.fetchSheetData('User ID'); 
       
       bool isOldUser = false;
@@ -146,7 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       for (var row in usersData) {
         String sheetPhone = (row['Phone'] ?? '').toString().trim();
-        
         if (sheetPhone == mobile) {
           isOldUser = true;
           finalPurixId = (row['Unique ID'] ?? row['Unique ID '] ?? '').toString().trim();
@@ -156,7 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
-      // Step B: SECURITY BLOCK - Agar Admin ne DEACTIVE kiya hai
       if (isOldUser && accountStatus == 'DEACTIVE') {
         setState(() => _isLoading = false);
         GoogleSignIn().signOut();
@@ -164,12 +139,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return; 
       }
 
-      // Step C: Naya User hai to ID generate karo
       if (!isOldUser) {
         finalPurixId = _generatePurixId();
       }
 
-      // Step D: Send Data to Google Apps Script (Smart Update / Insert)
       final response = await http.post(
         Uri.parse(scriptUrl),
         body: json.encode({
@@ -179,38 +152,33 @@ class _LoginScreenState extends State<LoginScreen> {
           "purix_id": finalPurixId,
           "selected_class": "", 
           "device_info": currentDevice,
-          "login_time": currentDateTime // 🚀 NAYA FIX: Ye value ab sheet me bheji jaa rahi hai
+          "login_time": currentDateTime
         }),
         headers: {"Content-Type": "application/json"},
       );
 
-      // Extract updated Plan status from backend if available
       if (response.statusCode == 200 || response.statusCode == 302) {
         try {
           var responseData = json.decode(response.body);
           if (responseData['subscription'] != null) {
             planStatus = responseData['subscription'];
           }
-        } catch (e) {
-          // Ignore parsing error, rely on frontend fetch fallback
-        }
+        } catch (e) {}
       }
 
-      // Step E: Local Storage me save karna (Fast Dashboard load ke liye)
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_name', name);
       await prefs.setString('user_email', email);
-      await prefs.setString('user_phone', mobile); // Fix: Consistent key used in dashboard
-      await prefs.setString('user_uid', finalPurixId); // 🚀 NAYA FIX: Dashboard ke liye UID save kiya
+      await prefs.setString('user_phone', mobile);
+      await prefs.setString('user_uid', finalPurixId);
       await prefs.setString('user_sub', planStatus);
       await prefs.setBool('is_logged_in', true);
 
       if (!mounted) return;
 
-      // DONE! Class Screen (Dashboard) par bhejo
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => ClassScreen(userName: name)),
+        MaterialPageRoute(builder: (context) => BoardScreen(userName: name)),
       );
     } catch (e) {
       setState(() => _isLoading = false);
@@ -218,7 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // PURIX ID GENERATOR
   String _generatePurixId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     Random rnd = Random();
@@ -238,62 +205,82 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: darkVoid,
-      body: Center(
-        child: _isLoading 
-            ? const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: neonCyan),
-                  SizedBox(height: 16),
-                  Text("SYNCING SECURE MATRIX...", style: TextStyle(color: neonCyan, fontFamily: 'monospace', letterSpacing: 2)),
-                ],
-              )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 140, height: 140,
-                      decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: goldAccent.withOpacity(0.35), blurRadius: 30, spreadRadius: 4)]),
-                      child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover, filterQuality: FilterQuality.high)),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              Center(
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: neonCyan, width: 2),
+                    boxShadow: [
+                      BoxShadow(color: neonCyan.withOpacity(0.3), blurRadius: 20, spreadRadius: 2),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'P',
+                      style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: goldAccent, fontFamily: 'monospace'),
                     ),
-                    const SizedBox(height: 24),
-                    const Text('PURIX ACADEMY', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: goldAccent, letterSpacing: 2)),
-                    const SizedBox(height: 8),
-                    Text('NEW WAY OF LEARNING', style: TextStyle(fontSize: 12, fontFamily: 'monospace', letterSpacing: 2, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Text('Access high-yield board question banks, simulations & notes', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.55), fontFamily: 'monospace')),
-                    const SizedBox(height: 48),
-                    
-                    Container(
-                      width: double.infinity, height: 52, constraints: const BoxConstraints(maxWidth: 380),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 4))]),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF1F1F1F), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                        onPressed: _handleGoogleSignIn,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(width: 24, height: 24, alignment: Alignment.center, child: const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF4285F4)))),
-                            const SizedBox(width: 12),
-                            const Text('Continue with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F1F1F), letterSpacing: 0.3)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.shield_outlined, size: 14, color: neonCyan.withOpacity(0.6)),
-                        const SizedBox(width: 6),
-                        Text('SECURE BOARD LEARNING PORTAL', style: TextStyle(fontSize: 10, fontFamily: 'monospace', letterSpacing: 1.2, color: Colors.white.withOpacity(0.4))),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 24),
+              const Center(
+                child: Text(
+                  'PURIX ACADEMY',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'NEW WAY OF LEARNING',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: neonCyan.withOpacity(0.8), fontFamily: 'monospace'),
+                ),
+              ),
+              const Spacer(),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(neonCyan)))
+              else
+                ElevatedButton(
+                  onPressed: _handleGoogleSignIn,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0E1626),
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: neonCyan, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 8,
+                    shadowColor: neonCyan.withOpacity(0.4),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.g_mobiledata_rounded, size: 28, color: neonCyan),
+                      SizedBox(width: 8),
+                      Text('SIGN IN WITH GOOGLE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 32),
+              Center(
+                child: Text(
+                  'SECURE GATEWAY • DEDICATED BOARD ACCESS',
+                  style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
       ),
     );
   }

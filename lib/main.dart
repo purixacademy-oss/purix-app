@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'services/sheet_service.dart'; // 🚀 NAYA FIX: Background check ke liye import
+import 'services/sheet_service.dart';
 
-// Global Navigator Key: Taki hum background se forcibly screen change kar sakein
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -12,12 +11,13 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final bool isLoggedIn = prefs.getBool('is_logged_in') ?? false;
   final String? savedClass = prefs.getString('user_class');
+  final String? savedBoard = prefs.getString('user_board');
   final String? userName = prefs.getString('user_name');
 
-  // runApp ko stateful widget me bhej diya
   runApp(PurixApp(
     isLoggedIn: isLoggedIn,
     savedClass: savedClass,
+    savedBoard: savedBoard,
     userName: userName,
   ));
 }
@@ -25,15 +25,21 @@ void main() async {
 class PurixApp extends StatefulWidget {
   final bool isLoggedIn;
   final String? savedClass;
+  final String? savedBoard;
   final String? userName;
 
-  const PurixApp({super.key, required this.isLoggedIn, this.savedClass, this.userName});
+  const PurixApp({
+    super.key,
+    required this.isLoggedIn,
+    this.savedClass,
+    this.savedBoard,
+    this.userName,
+  });
 
   @override
   State<PurixApp> createState() => _PurixAppState();
 }
 
-// 🚀 NAYA FIX: WidgetsBindingObserver lagaya (App Lifecycle track karne ke liye)
 class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
   
   @override
@@ -48,7 +54,6 @@ class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Jaise hi student app ko wapas open karega (background se)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -56,19 +61,17 @@ class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
     }
   }
 
-  // 🚀 NAYA FIX: Live Checker Function
   Future<void> _checkLiveStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final bool isLog = prefs.getBool('is_logged_in') ?? false;
     
-    if (!isLog) return; // Agar login nahi hai toh check mat karo
+    if (!isLog) return;
 
-    // Strict 12-hour throttling to save Google Sheets daily execution quota
     final lastCheckStr = prefs.getString('last_live_check_time');
     if (lastCheckStr != null) {
       final diffHours = DateTime.now().difference(DateTime.parse(lastCheckStr)).inHours;
       if (diffHours < 12) {
-        return; // Already verified within 12 hours - zero API calls made
+        return; 
       }
     }
 
@@ -76,30 +79,28 @@ class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
     final name = prefs.getString('user_name') ?? '';
     final email = prefs.getString('user_email') ?? 'N/A';
     final userClass = prefs.getString('user_class') ?? '';
+    final userBoard = prefs.getString('user_board') ?? 'Bihar Board (BSEB)';
 
     if (phone.isNotEmpty) {
       try {
-        // Bina UI disturb kiye throttled sync call
         final status = await SheetService.syncUserProfile(
           name: name,
           phone: phone,
           email: email,
           selectedClass: userClass,
+          selectedBoard: userBoard,
         );
 
         await prefs.setString('last_live_check_time', DateTime.now().toIso8601String());
         
-        // Agar admin ne deactivate kar diya hai
         if (status.toUpperCase() == 'DEACTIVE' || status.toUpperCase() == 'BANNED') {
-          await prefs.clear(); // Saara cache turant delete
+          await prefs.clear(); 
           
-          // Force Logout - Sidha Login Screen par fenk do
           navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginScreen()),
             (route) => false,
           );
           
-          // Alert message dikhao
           if (navigatorKey.currentContext != null) {
             ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
               const SnackBar(
@@ -110,11 +111,10 @@ class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
             );
           }
         } else {
-          // Instant Activation: Agar free ya pro hai, toh local memory me live update kardo
           await prefs.setString('user_sub', status);
         }
       } catch (e) {
-        // Ignore errors (jaise internet na hona) taaki app freeze na ho
+        // Safe ignore
       }
     }
   }
@@ -122,12 +122,16 @@ class _PurixAppState extends State<PurixApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: navigatorKey, // 🚀 NAYA FIX: Navigator attach kiya
+      navigatorKey: navigatorKey, 
       title: 'Purix Academy',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: const Color(0xFF070B14)),
       home: (widget.isLoggedIn && widget.savedClass != null) 
-          ? DashboardScreen(selectedClass: widget.savedClass!, userName: widget.userName ?? 'Student') 
+          ? DashboardScreen(
+              selectedClass: widget.savedClass!,
+              userName: widget.userName ?? 'Student',
+              selectedBoard: widget.savedBoard ?? 'Bihar Board (BSEB)',
+            ) 
           : const LoginScreen(),
     );
   }
