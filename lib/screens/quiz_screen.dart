@@ -7,6 +7,7 @@ class QuizScreen extends StatefulWidget {
   final String subject;
   final String chapter;
   final int quizSetNumber;
+  final List<Map<String, dynamic>>? providedQuestions;
 
   const QuizScreen({
     super.key,
@@ -14,6 +15,8 @@ class QuizScreen extends StatefulWidget {
     String? className,
     String? subject,
     String? subjectName,
+    String? subSubjectName, // chapter_screen se aata hai (abhi filter me use nahi)
+    List<Map<String, dynamic>>? questions,
     String? chapter,
     String? chapterName,
     int? quizSetNumber,
@@ -21,7 +24,8 @@ class QuizScreen extends StatefulWidget {
   })  : selectedClass = selectedClass ?? className ?? 'Class 10th',
         subject = subjectName ?? subject ?? 'Science',
         chapter = chapterName ?? chapter ?? 'Chapter 1',
-        quizSetNumber = setNumber ?? quizSetNumber ?? 1;
+        quizSetNumber = setNumber ?? quizSetNumber ?? 1,
+        providedQuestions = questions;
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -54,6 +58,17 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> _fetchQuestions() async {
     setState(() => _isLoading = true);
+
+    // chapter_screen ne pehle se is set ke 20 questions bhej diye hon to wahi use karo
+    if (widget.providedQuestions != null && widget.providedQuestions!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _questions = widget.providedQuestions!;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
     final sheetName = _getTargetSheetName();
     final data = await SheetService.fetchSheetData(sheetName);
