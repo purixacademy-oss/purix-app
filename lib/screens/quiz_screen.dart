@@ -12,10 +12,16 @@ class QuizScreen extends StatefulWidget {
     super.key,
     String? selectedClass,
     String? className,
-    this.subject = 'Science',
-    this.chapter = 'Chapter 1',
-    this.quizSetNumber = 1,
-  }) : selectedClass = selectedClass ?? className ?? 'Class 10th';
+    String? subject,
+    String? subjectName,
+    String? chapter,
+    String? chapterName,
+    int? quizSetNumber,
+    int? setNumber,
+  })  : selectedClass = selectedClass ?? className ?? 'Class 10th',
+        subject = subjectName ?? subject ?? 'Science',
+        chapter = chapterName ?? chapter ?? 'Chapter 1',
+        quizSetNumber = setNumber ?? quizSetNumber ?? 1;
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -81,10 +87,11 @@ class _QuizScreenState extends State<QuizScreen> {
         endIndex > finalQuestions.length ? finalQuestions.length : endIndex,
       );
     }
+    // --------------------------------------
 
     if (mounted) {
       setState(() {
-        _questions = paginatedQuestions;
+        _questions = paginatedQuestions; // Sirf slice kiye hue questions hi load honge
         _isLoading = false;
       });
     }
@@ -100,7 +107,7 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _selectedOptionLetter = optionLetter;
       _answered = true;
-      if (optionLetter == correctAns) {
+      if (optionLetter.toUpperCase() == correctAns) {
         _score++;
       }
     });
@@ -114,35 +121,13 @@ class _QuizScreenState extends State<QuizScreen> {
         _answered = false;
       });
     } else {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Mark Quiz Set as Completed
-      final String completionKey =
-          "quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}_completed";
-      await prefs.setBool(completionKey, true);
-
-      // Save Best Score
-      final String scoreKey =
-          "quiz_score_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}";
-      final int previousScore = prefs.getInt(scoreKey) ?? 0;
-      if (_score > previousScore) {
-        await prefs.setInt(scoreKey, _score);
-      }
-
-      // Check if all sets of this chapter are completed
-      final int totalSets = (_questions.length / 20).ceil();
-      bool allCompleted = true;
-      for (int i = 1; i <= totalSets; i++) {
-        final String setKey = "quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${i}_completed";
-        if (prefs.getBool(setKey) != true) {
-          allCompleted = false;
-          break;
-        }
-      }
-
-      if (allCompleted) {
-        final String chapterKey = "chapter_completed_${widget.selectedClass}_${widget.subject}_${widget.chapter}";
-        await prefs.setBool(chapterKey, true);
+      // Test complete hone par local storage me save kar lo
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}_completed', true);
+        await prefs.setBool('chapter_completed_${widget.selectedClass}_${widget.subject}_${widget.chapter}', true);
+      } catch (e) {
+        debugPrint("Error saving quiz completion status: $e");
       }
 
       _showResultDialog();
@@ -154,23 +139,29 @@ class _QuizScreenState extends State<QuizScreen> {
     const neonGreen = Color(0xFF00FF66);
 
     showDialog(
-      context: context,
       barrierDismissible: false,
+      context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF0B111E),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: neonGreen),
+          side: const BorderSide(color: neonCyan, width: 1.5),
         ),
-        title: const Center(
-          child: Text(
-            'MISSION DEBRIEF',
-            style: TextStyle(
-              color: neonGreen,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
+        title: const Column(
+          children: [
+            Icon(Icons.military_tech, color: neonGreen, size: 44),
+            SizedBox(height: 8),
+            Text(
+              '// SIMULATION COMPLETE',
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'monospace',
+                letterSpacing: 2,
+                color: neonCyan,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -211,7 +202,7 @@ class _QuizScreenState extends State<QuizScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context, true); // Pop back to Chapter Screen
+              Navigator.pop(context); // Do baar pop taaki wapas list par chala jaye
             },
             child: const Text('EXIT', style: TextStyle(color: Colors.white60, fontFamily: 'monospace')),
           ),
@@ -293,7 +284,7 @@ class _QuizScreenState extends State<QuizScreen> {
       {
         'letter': 'A',
         'text': _isHindi
-            ? (currentQ['Option A hin'] ?? currentQ['Option_A_hin'] ?? currentQ['Option A eng'] ?? '').toString()
+            ? (currentQ['Option A hin'] ?? currentQ['Option_A_hin'] ?? currentQ['option A hin'] ?? currentQ['Option A eng'] ?? '').toString()
             : (currentQ['Option A eng'] ?? currentQ['Option_A_eng'] ?? currentQ['Option A hin'] ?? '').toString(),
       },
       {
