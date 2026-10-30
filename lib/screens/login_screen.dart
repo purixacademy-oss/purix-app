@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (error) {
       setState(() => _isLoading = false);
-      _showErrorSnackBar("Google Sign-In failed. Please try again.");
+      _showErrorSnackBar("Google Sign-In error: $error");
     }
   }
 
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: neonCyan.withOpacity(0.2), foregroundColor: neonCyan, side: const BorderSide(color: neonCyan)),
+              style: ElevatedButton.styleFrom(backgroundColor: neonCyan.withValues(alpha: 0.2), foregroundColor: neonCyan, side: const BorderSide(color: neonCyan)),
               onPressed: () {
                 if (_mobileController.text.length == 10) {
                   Navigator.pop(context);
@@ -221,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: neonCyan, width: 2),
                     boxShadow: [
-                      BoxShadow(color: neonCyan.withOpacity(0.3), blurRadius: 20, spreadRadius: 2),
+                      BoxShadow(color: neonCyan.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2),
                     ],
                   ),
                   child: const Center(
@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: Text(
                   'NEW WAY OF LEARNING',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: neonCyan.withOpacity(0.8), fontFamily: 'monospace'),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: neonCyan.withValues(alpha: 0.8), fontFamily: 'monospace'),
                 ),
               ),
               const Spacer(),
@@ -259,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 8,
-                    shadowColor: neonCyan.withOpacity(0.4),
+                    shadowColor: neonCyan.withValues(alpha: 0.4),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -274,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: Text(
                   'SECURE GATEWAY • DEDICATED BOARD ACCESS',
-                  style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
+                  style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
                 ),
               ),
               const SizedBox(height: 16),
