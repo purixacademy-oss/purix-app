@@ -10,11 +10,12 @@ class QuizScreen extends StatefulWidget {
 
   const QuizScreen({
     super.key,
-    required this.selectedClass,
+    String? selectedClass,
+    String? className,
     this.subject = 'Science',
     this.chapter = 'Chapter 1',
     this.quizSetNumber = 1,
-  });
+  }) : selectedClass = selectedClass ?? className ?? 'Class 10th';
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -80,11 +81,10 @@ class _QuizScreenState extends State<QuizScreen> {
         endIndex > finalQuestions.length ? finalQuestions.length : endIndex,
       );
     }
-    // --------------------------------------
 
     if (mounted) {
       setState(() {
-        _questions = paginatedQuestions; // Sirf slice kiye hue questions hi load honge
+        _questions = paginatedQuestions;
         _isLoading = false;
       });
     }
@@ -100,7 +100,7 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _selectedOptionLetter = optionLetter;
       _answered = true;
-      if (optionLetter.toUpperCase() == correctAns) {
+      if (optionLetter == correctAns) {
         _score++;
       }
     });
@@ -114,13 +114,35 @@ class _QuizScreenState extends State<QuizScreen> {
         _answered = false;
       });
     } else {
-      // Test complete hone par local storage me save kar lo
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}_completed', true);
-        await prefs.setBool('chapter_completed_${widget.selectedClass}_${widget.subject}_${widget.chapter}', true);
-      } catch (e) {
-        debugPrint("Error saving quiz completion status: $e");
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Mark Quiz Set as Completed
+      final String completionKey =
+          "quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}_completed";
+      await prefs.setBool(completionKey, true);
+
+      // Save Best Score
+      final String scoreKey =
+          "quiz_score_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${widget.quizSetNumber}";
+      final int previousScore = prefs.getInt(scoreKey) ?? 0;
+      if (_score > previousScore) {
+        await prefs.setInt(scoreKey, _score);
+      }
+
+      // Check if all sets of this chapter are completed
+      final int totalSets = (_questions.length / 20).ceil();
+      bool allCompleted = true;
+      for (int i = 1; i <= totalSets; i++) {
+        final String setKey = "quiz_${widget.selectedClass}_${widget.subject}_${widget.chapter}_set_${i}_completed";
+        if (prefs.getBool(setKey) != true) {
+          allCompleted = false;
+          break;
+        }
+      }
+
+      if (allCompleted) {
+        final String chapterKey = "chapter_completed_${widget.selectedClass}_${widget.subject}_${widget.chapter}";
+        await prefs.setBool(chapterKey, true);
       }
 
       _showResultDialog();
@@ -132,29 +154,23 @@ class _QuizScreenState extends State<QuizScreen> {
     const neonGreen = Color(0xFF00FF66);
 
     showDialog(
-      barrierDismissible: false,
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF0B111E),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: neonCyan, width: 1.5),
+          side: const BorderSide(color: neonGreen),
         ),
-        title: const Column(
-          children: [
-            Icon(Icons.military_tech, color: neonGreen, size: 44),
-            SizedBox(height: 8),
-            Text(
-              '// SIMULATION COMPLETE',
-              style: TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-                letterSpacing: 2,
-                color: neonCyan,
-                fontWeight: FontWeight.bold,
-              ),
+        title: const Center(
+          child: Text(
+            'MISSION DEBRIEF',
+            style: TextStyle(
+              color: neonGreen,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
             ),
-          ],
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -167,9 +183,9 @@ class _QuizScreenState extends State<QuizScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: neonGreen.withValues( alpha: 0.1),
+                color: neonGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: neonGreen.withValues( alpha: 0.5)),
+                border: Border.all(color: neonGreen.withOpacity(0.5)),
               ),
               child: Text(
                 '$_score / ${_questions.length}',
@@ -195,13 +211,13 @@ class _QuizScreenState extends State<QuizScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context); // Do baar pop taaki wapas list par chala jaye
+              Navigator.pop(context, true); // Pop back to Chapter Screen
             },
             child: const Text('EXIT', style: TextStyle(color: Colors.white60, fontFamily: 'monospace')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: neonCyan.withValues( alpha: 0.2),
+              backgroundColor: neonCyan.withOpacity(0.2),
               foregroundColor: neonCyan,
               side: const BorderSide(color: neonCyan),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -324,9 +340,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: neonGreen.withValues( alpha: 0.15),
+                    color: neonGreen.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: neonGreen.withValues( alpha: 0.4)),
+                    border: Border.all(color: neonGreen.withOpacity(0.4)),
                   ),
                   child: Text(
                     'SET 0${widget.quizSetNumber}',
@@ -413,10 +429,10 @@ class _QuizScreenState extends State<QuizScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D1524),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: neonCyan.withValues( alpha: 0.35), width: 1.2),
+                border: Border.all(color: neonCyan.withOpacity(0.35), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: neonCyan.withValues( alpha: 0.08),
+                    color: neonCyan.withOpacity(0.08),
                     blurRadius: 12,
                     offset: const Offset(0, 3),
                   ),
@@ -428,7 +444,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   Text(
                     '// QUERY MATRIX',
                     style: TextStyle(
-                      color: neonCyan.withValues( alpha: 0.7),
+                      color: neonCyan.withOpacity(0.7),
                       fontSize: 10,
                       fontFamily: 'monospace',
                       letterSpacing: 1.5,
@@ -466,12 +482,12 @@ class _QuizScreenState extends State<QuizScreen> {
 
                   if (_answered) {
                     if (letter == correctLetter) {
-                      cardBg = neonGreen.withValues( alpha: 0.12);
+                      cardBg = neonGreen.withOpacity(0.12);
                       borderColor = neonGreen;
                       badgeColor = neonGreen;
                       textColor = Colors.white;
                     } else if (letter == _selectedOptionLetter) {
-                      cardBg = neonRed.withValues( alpha: 0.12);
+                      cardBg = neonRed.withOpacity(0.12);
                       borderColor = neonRed;
                       badgeColor = neonRed;
                       textColor = Colors.white;
@@ -499,9 +515,9 @@ class _QuizScreenState extends State<QuizScreen> {
                                 height: 28,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: badgeColor.withValues( alpha: 0.15),
+                                  color: badgeColor.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: badgeColor.withValues( alpha: 0.4)),
+                                  border: Border.all(color: badgeColor.withOpacity(0.4)),
                                 ),
                                 child: Text(
                                   letter,
@@ -547,7 +563,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF101726),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: neonGold.withValues( alpha: 0.4)),
+                  border: Border.all(color: neonGold.withOpacity(0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +596,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 child: ElevatedButton(
                   onPressed: _nextQuestion,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: neonCyan.withValues( alpha: 0.2),
+                    backgroundColor: neonCyan.withOpacity(0.2),
                     foregroundColor: neonCyan,
                     side: const BorderSide(color: neonCyan, width: 1.2),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
