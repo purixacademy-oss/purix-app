@@ -1,9 +1,9 @@
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    // 👇 NAYA ADD KIYA GAYA 👇
-    id("com.google.gms.google-services") 
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -26,31 +26,26 @@ android {
     signingConfigs {
         create("release") {
             val jks = file("purix-release.jks")
-            if (jks.exists()) {
-                storeFile = jks
-                storePassword = "purix@2026"
-                keyAlias = "purixkey"
-                keyPassword = "purix@2026"
-            } else {
-                val debugKeystore = file("debug.keystore")
-                if (debugKeystore.exists()) {
-                    storeFile = debugKeystore
-                    storePassword = "android"
-                    keyAlias = "androiddebugkey"
-                    keyPassword = "android"
-                }
+
+            if (!jks.exists()) {
+                throw GradleException("Release JKS file is missing!")
             }
+
+            storeFile = jks
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+                ?: throw GradleException("KEYSTORE_PASSWORD secret missing!")
+
+            keyAlias = System.getenv("KEY_ALIAS")
+                ?: throw GradleException("KEY_ALIAS secret missing!")
+
+            keyPassword = System.getenv("KEY_PASSWORD")
+                ?: throw GradleException("KEY_PASSWORD secret missing!")
         }
     }
-    
+
     buildTypes {
         getByName("release") {
-            val jks = file("purix-release.jks")
-            if (jks.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
         }
@@ -68,7 +63,6 @@ flutter {
 }
 
 dependencies {
-    
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
     implementation("com.google.firebase:firebase-analytics")
 }

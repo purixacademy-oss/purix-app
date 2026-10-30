@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -28,22 +29,48 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Ensure Keystore and Resources exist on Server
-      - name: Prepare Keystore and Build Assets
+      - name: Restore Original Release Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          set -e
+
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "Required keystore secrets are missing!"
+            exit 1
+          fi
+
           mkdir -p android/app
-          if [ ! -f android/app/purix-release.jks ]; then
-            keytool -genkey -v -keystore android/app/purix-release.jks -storepass purix@2026 -alias purixkey -keypass purix@2026 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Purix Academy, O=Purix, C=IN"
-          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/purix-release.jks
+          chmod 600 android/app/purix-release.jks
+
+          keytool -list \
+            -keystore android/app/purix-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS"
+
+      - name: Verify Firebase Configuration
+        run: |
+          set -e
+
           if [ ! -f android/app/google-services.json ]; then
-            echo '{"project_info":{"project_number":"194600932123","project_id":"purix-academy","storage_bucket":"purix-academy.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:194600932123:android:3aa0f84f2ad133158779be","android_client_info":{"package_name":"com.purixacademy.app"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyKey"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > android/app/google-services.json
+            echo "ERROR: Real google-services.json is missing!"
+            exit 1
           fi
 
-      - name: Build Universal Release APK
-        run: flutter build apk --release --no-tree-shake-icons
+          python3 -m json.tool android/app/google-services.json > /dev/null
+          echo "Firebase configuration verified."
 
-      - name: Build Release App Bundle (for Play Store & Indus)
-        run: flutter build appbundle --release --no-tree-shake-icons
+      - name: Build Signed APK and AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --no-tree-shake-icons
+          flutter build appbundle --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
