@@ -18,8 +18,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   final TextEditingController _mobileController = TextEditingController();
-  
-  String get scriptUrl => SheetService.studentDataUrl; 
+
+  // 👇 Apni logo file ka path yahan likho (pubspec.yaml me bhi add karna zaroori hai)
+  static const String _logoPath = 'assets/images/logo.png';
+
+  String get scriptUrl => SheetService.studentDataUrl;
 
   Future<String> _getDeviceInfo() async {
     try {
@@ -55,15 +58,19 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF0B111E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: neonCyan)),
-          title: const Text('PURIX CADET REGISTRATION', style: TextStyle(color: neonCyan, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16), side: const BorderSide(color: neonCyan)),
+          title: const Text('PURIX CADET REGISTRATION',
+              style: TextStyle(color: neonCyan, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Welcome Cadet, $name!', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('Welcome Cadet, $name!',
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              const Text('Enter 10-digit WhatsApp number to link your progress report.', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const Text('Enter 10-digit WhatsApp number to link your progress report.',
+                  style: TextStyle(color: Colors.white70, fontSize: 11)),
               const SizedBox(height: 16),
               TextField(
                 controller: _mobileController,
@@ -78,8 +85,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 0),
                   filled: true,
                   fillColor: const Color(0xFF040814),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: neonCyan)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: neonCyan)),
                 ),
               ),
             ],
@@ -90,7 +99,10 @@ class _LoginScreenState extends State<LoginScreen> {
               child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: neonCyan.withOpacity( 0.2), foregroundColor: neonCyan, side: const BorderSide(color: neonCyan)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: neonCyan.withOpacity(0.2),
+                  foregroundColor: neonCyan,
+                  side: const BorderSide(color: neonCyan)),
               onPressed: () {
                 if (_mobileController.text.length == 10) {
                   Navigator.pop(context);
@@ -112,34 +124,31 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final String currentDevice = await _getDeviceInfo();
-      final String currentDateTime = DateTime.now().toString().substring(0, 16); 
-      
-      final usersData = await SheetService.fetchSheetData('User ID'); 
-      
-      bool isOldUser = false;
+      final String currentDateTime = DateTime.now().toString().substring(0, 16);
+
+      // 🔒 Sirf is phone ki row (poori user list nahi), hamesha fresh
+      final userRow = await SheetService.fetchUserByPhone(mobile);
+
+      final bool isOldUser = userRow != null;
       String finalPurixId = '';
       String accountStatus = 'ACTIVE';
       String planStatus = 'FREE';
 
-      for (var row in usersData) {
-        String sheetPhone = (row['Phone'] ?? '').toString().trim();
-        if (sheetPhone == mobile) {
-          isOldUser = true;
-          finalPurixId = (row['Unique ID'] ?? row['Unique ID '] ?? '').toString().trim();
-          planStatus = (row['Plan'] ?? 'FREE').toString().trim().toUpperCase();
-          accountStatus = (row['Status'] ?? 'ACTIVE').toString().trim().toUpperCase();
-          break;
-        }
+      if (userRow != null) {
+        finalPurixId = (userRow['UniqueID'] ?? '').toString().trim();
+        planStatus = (userRow['Plan'] ?? 'FREE').toString().trim().toUpperCase();
+        accountStatus = (userRow['Status'] ?? 'ACTIVE').toString().trim().toUpperCase();
       }
 
-      if (isOldUser && accountStatus == 'DEACTIVE') {
+      if (isOldUser && (accountStatus == 'DEACTIVE' || accountStatus == 'BANNED')) {
         setState(() => _isLoading = false);
         GoogleSignIn().signOut();
         _showErrorSnackBar("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy support.");
-        return; 
+        return;
       }
 
-      if (!isOldUser) {
+      // Purana user hai par sheet me Unique ID khali ho to bhi naya bana lo
+      if (finalPurixId.isEmpty) {
         finalPurixId = _generatePurixId();
       }
 
@@ -150,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
           "phone": mobile,
           "email": email,
           "purix_id": finalPurixId,
-          "selected_class": "", 
+          "selected_class": "",
           "device_info": currentDevice,
           "login_time": currentDateTime
         }),
@@ -189,12 +198,14 @@ class _LoginScreenState extends State<LoginScreen> {
   String _generatePurixId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     Random rnd = Random();
-    String randomStr = String.fromCharCodes(Iterable.generate(5, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+    String randomStr =
+        String.fromCharCodes(Iterable.generate(5, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
     return 'PRX-$randomStr';
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
   }
 
   @override
@@ -213,21 +224,33 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
+              // ================= LOGO =================
               Center(
                 child: Container(
-                  width: 90,
-                  height: 90,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: neonCyan, width: 2),
                     boxShadow: [
-                      BoxShadow(color: neonCyan.withOpacity( 0.3), blurRadius: 20, spreadRadius: 2),
+                      BoxShadow(color: neonCyan.withOpacity(0.3), blurRadius: 20, spreadRadius: 2),
                     ],
                   ),
-                  child: const Center(
-                    child: Text(
-                      'P',
-                      style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: goldAccent, fontFamily: 'monospace'),
+                  child: ClipOval(
+                    child: Image.asset(
+                      _logoPath,
+                      fit: BoxFit.cover,
+                      // Logo file na mile to purana "P" dikhega
+                      errorBuilder: (context, error, stack) => const Center(
+                        child: Text(
+                          'P',
+                          style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              color: goldAccent,
+                              fontFamily: 'monospace'),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -243,7 +266,12 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: Text(
                   'NEW WAY OF LEARNING',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: neonCyan.withOpacity( 0.8), fontFamily: 'monospace'),
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                      color: neonCyan.withOpacity(0.8),
+                      fontFamily: 'monospace'),
                 ),
               ),
               const Spacer(),
@@ -259,14 +287,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 8,
-                    shadowColor: neonCyan.withOpacity( 0.4),
+                    shadowColor: neonCyan.withOpacity(0.4),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.g_mobiledata_rounded, size: 28, color: neonCyan),
                       SizedBox(width: 8),
-                      Text('SIGN IN WITH GOOGLE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                      Text('SIGN IN WITH GOOGLE',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                     ],
                   ),
                 ),
@@ -274,7 +303,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: Text(
                   'SECURE GATEWAY • DEDICATED BOARD ACCESS',
-                  style: TextStyle(fontSize: 9, color: Colors.white.withOpacity( 0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
+                  style: TextStyle(
+                      fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
                 ),
               ),
               const SizedBox(height: 16),

@@ -5,19 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SheetService {
   // ==============================================================
-  // 🏛️ CENTRAL URLs
+  // 🏛️ CENTRAL URLs  (4 alag deployments)
   // ==============================================================
-  static const String studentDataUrl =
-      "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec";
+  // User spreadsheet (login, plan, students data)
+  static const String studentDataUrl = "https://script.google.com/macros/s/AKfycbxW1tu6jkT29VBflDapForv8tLdV56-XfMeFjqX9xd-Q3hhwuwsNz_IJTexO4hEsoDTOA/exec";
 
-  static const String biharBoardUrl =
-      "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec";
-
-  static const String cbseBoardUrl =
-      "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec";
-
-  static const String jharkhandBoardUrl =
-      "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec";
+  static const String biharBoardUrl = "https://script.google.com/macros/s/AKfycbwNSja_UzoISlT4hb8ESpgUls_0Vw1VqpkibIRaVo56L2dCMIF3bJ4NjcB6aOUvZomn/exec";
+  static const String cbseBoardUrl = "https://script.google.com/macros/s/AKfycbxrukMQn5IFkfaAkCr9EzKjv1QI7eTm1C6H7DoTT3ABEYcim1TPgOA92l2XxDcKNRBUSQ/exec";
+  static const String jharkhandBoardUrl = "https://script.google.com/macros/s/AKfycbxji5Af2_gwCwWS3j-qoapuwncAD9VIw7nztICi8RPoWiZ7HsbvSnuReAAGyGbNFmGa/exec";
 
   static String getTodayDateKey() {
     final now = DateTime.now();
@@ -52,18 +47,21 @@ class SheetService {
   static Future<List<Map<String, dynamic>>> fetchSheetData(
     String sheetName, {
     String? board,
+    String? className, // jaise "10" ya "Class 10"
     bool forceRefresh = false,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final cls = (className ?? prefs.getString('user_class') ?? '').trim();
       final activeBoard = board ?? prefs.getString('user_board') ?? 'Bihar Board (BSEB)';
       final targetScriptUrl = await getScriptUrlForSheet(sheetName, board: activeBoard);
       final todayDateKey = getTodayDateKey();
 
       final safeBoard = activeBoard.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
       final safeSheet = sheetName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final cacheKey = 'cache_data_${safeBoard}_$safeSheet';
-      final cacheDateKey = 'cache_date_${safeBoard}_$safeSheet';
+      final safeClass = cls.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final cacheKey = 'cache_data_${safeBoard}_${safeClass}_$safeSheet';
+      final cacheDateKey = 'cache_date_${safeBoard}_${safeClass}_$safeSheet';
 
       if (!forceRefresh) {
         final cachedDate = prefs.getString(cacheDateKey);
@@ -76,7 +74,9 @@ class SheetService {
         }
       }
 
-      final fetchUri = Uri.parse("$targetScriptUrl?sheet=${Uri.encodeComponent(sheetName)}");
+      final isUserSheet = targetScriptUrl == studentDataUrl;
+      final classQuery = (!isUserSheet && cls.isNotEmpty) ? "&class=${Uri.encodeComponent(cls)}" : "";
+      final fetchUri = Uri.parse("$targetScriptUrl?sheet=${Uri.encodeComponent(sheetName)}$classQuery");
       final response = await http.get(fetchUri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
@@ -87,6 +87,20 @@ class SheetService {
       }
     } catch (_) {}
     return [];
+  }
+
+  // 1b. Login ke time sirf ek user ki row (Phone, UniqueID, Plan, Status) - cache nahi, hamesha fresh
+  static Future<Map<String, dynamic>?> fetchUserByPhone(String phone) async {
+    try {
+      final uri = Uri.parse(
+          "$studentDataUrl?sheet=${Uri.encodeComponent('User ID')}&phone=${Uri.encodeComponent(phone.trim())}");
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(response.body);
+        if (list.isNotEmpty) return Map<String, dynamic>.from(list.first);
+      }
+    } catch (_) {}
+    return null;
   }
 
   // 2. Sync User Profile with selectedBoard support
@@ -139,14 +153,16 @@ class SheetService {
         headers: {"Content-Type": "application/json"},
       ).timeout(const Duration(seconds: 15));
 
+      // 🔒 Ab poori User ID list nahi, sirf is phone ki status aati hai
       final response = await http
-          .get(Uri.parse("$studentDataUrl?sheet=User ID"))
+          .get(Uri.parse(
+              "$studentDataUrl?sheet=${Uri.encodeComponent('User ID')}&phone=${Uri.encodeComponent(phone.trim())}"))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> rawData = jsonDecode(response.body);
         for (var item in rawData) {
-          final sheetPhone = (item['Phone'] ?? item['phone'] ?? '').toString().trim();
+          final sheetPhone = (item['Phone'] ?? '').toString().trim();
           if (sheetPhone == phone.trim()) {
             final status = (item['Status'] ?? 'ACTIVE').toString().toUpperCase();
             await prefs.setString('user_sub', 'ACTIVE');
