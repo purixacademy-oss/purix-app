@@ -1,8 +1,13 @@
 import { SheetRow } from '../types';
 
 export class SheetService {
-  // Google Apps Script Web App Endpoint
-  static readonly SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyMCVQQB7BkbRxxvociPZL56LWryYz7zSEF3hKxxK6zxDsApHXE_VEoRsTS0GmU7VDMSA/exec";
+  // ==============================================================
+  // 🏛️ CENTRAL URLs (4 active Google Apps Script deployments from official Purix repository)
+  // ==============================================================
+  static readonly STUDENT_DATA_URL = "https://script.google.com/macros/s/AKfycbxW1tu6jkT29VBflDapForv8tLdV56-XfMeFjqX9xd-Q3hhwuwsNz_IJTexO4hEsoDTOA/exec";
+  static readonly BIHAR_BOARD_URL = "https://script.google.com/macros/s/AKfycbwNSja_UzoISlT4hb8ESpgUls_0Vw1VqpkibIRaVo56L2dCMIF3bJ4NjcB6aOUvZomn/exec";
+  static readonly CBSE_BOARD_URL = "https://script.google.com/macros/s/AKfycbxrukMQn5IFkfaAkCr9EzKjv1QI7eTm1C6H7DoTT3ABEYcim1TPgOA92l2XxDcKNRBUSQ/exec";
+  static readonly JHARKHAND_BOARD_URL = "https://script.google.com/macros/s/AKfycbxji5Af2_gwCwWS3j-qoapuwncAD9VIw7nztICi8RPoWiZ7HsbvSnuReAAGyGbNFmGa/exec";
 
   // 12-Hour Cache Duration in Milliseconds (12 * 60 * 60 * 1000 = 43,200,000 ms)
   static readonly CACHE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -11,7 +16,27 @@ export class SheetService {
   private static inFlightRequests: Map<string, Promise<SheetRow[]>> = new Map();
 
   /**
-   * Detect client device information
+   * Determine the appropriate Google Apps Script endpoint based on the sheet name and selected board
+   */
+  static getScriptUrlForSheet(sheetName: string, board?: string): string {
+    const cleanSheet = sheetName.trim().toLowerCase();
+    if (cleanSheet.includes('user') || cleanSheet.includes('student')) {
+      return this.STUDENT_DATA_URL;
+    }
+
+    const cleanBoard = (board || localStorage.getItem('user_board') || 'Bihar Board (BSEB)').trim().toLowerCase();
+    if (cleanBoard.includes('cbse')) {
+      return this.CBSE_BOARD_URL;
+    } else if (cleanBoard.includes('jharkhand') || cleanBoard.includes('jac')) {
+      return this.JHARKHAND_BOARD_URL;
+    } else {
+      return this.BIHAR_BOARD_URL;
+    }
+  }
+
+  /**
+   * Detect client device information silently (Brand, Model, OS)
+   * Captures mobile model from User-Agent without any prompt or permission popup
    */
   static getDeviceInfo(): string {
     if (typeof window === 'undefined' || !window.navigator) {
@@ -22,19 +47,27 @@ export class SheetService {
     let device = "Web Browser";
 
     if (/android/i.test(ua)) {
-      device = "Android Web";
-      const match = ua.match(/Android\s([0-9.]+);?\s?([^;)]*)/);
-      if (match && match[2]) {
-        device = `Android (${match[2].trim()})`;
+      device = "Android Device";
+      // Extract Android version and device model (e.g. SM-G998B, Redmi Note 10, vivo 1920)
+      const androidMatch = ua.match(/Android\s([0-9.]+)/i);
+      const version = androidMatch ? `Android ${androidMatch[1]}` : 'Android';
+      
+      const modelMatch = ua.match(/;\s*([^;)]+)\s*Build/i) || ua.match(/Android[^;]+;\s*([^;)]+)\)/i);
+      if (modelMatch && modelMatch[1]) {
+        device = `${version} (${modelMatch[1].trim()})`;
+      } else {
+        device = version;
       }
     } else if (/iPad|iPhone|iPod/.test(ua)) {
-      device = "iOS Web";
+      const match = ua.match(/iPhone\sOS\s([0-9_]+)/i);
+      const iosVer = match ? `iOS ${match[1].replace(/_/g, '.')}` : 'iOS';
+      device = `Apple iPhone (${iosVer})`;
     } else if (/Macintosh|Mac OS X/.test(ua)) {
-      device = "macOS Web";
+      device = "Apple Mac (Desktop)";
     } else if (/Windows/.test(ua)) {
-      device = "Windows PC Web";
+      device = "Windows PC";
     } else if (/Linux/.test(ua)) {
-      device = "Linux Web";
+      device = "Linux Machine";
     }
 
     return device;
@@ -53,20 +86,46 @@ export class SheetService {
   }
 
   /**
-   * Checks whether the specified sheet data is already cached and valid within 12 hours
+   * Generates a safe cache key scoped by board, class, and sheet
    */
-  static isCacheValid(sheetName: string): boolean {
-    const cacheKey = `cache_data_${sheetName}`;
-    const timeKey = `cache_time_${sheetName}`;
+  private static getCacheKey(sheetName: string, board?: string, className?: string): { dataKey: string; timeKey: string } {
+    const activeBoard = (board || localStorage.getItem('user_board') || 'Bihar Board (BSEB)').replace(/[^a-zA-Z0-9]/g, '_');
+    const activeClass = (className || localStorage.getItem('user_class') || '').replace(/[^a-zA-Z0-9]/g, '_');
+    const safeSheet = sheetName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    return {
+      dataKey: `cache_data_${activeBoard}_${activeClass}_${safeSheet}`,
+      timeKey: `cache_time_${activeBoard}_${activeClass}_${safeSheet}`,
+    };
+  }
+
+  /**
+   * Checks whether the specified sheet data is already cached and valid.
+   * Enforces 12:00 AM Midnight Reset: Cache expires when midnight passes so a new day fetches fresh content.
+   * Also enforces 12-hour max TTL.
+   */
+  static isCacheValid(sheetName: string, board?: string, className?: string): boolean {
+    const { dataKey, timeKey } = this.getCacheKey(sheetName, board, className);
 
     try {
-      const cachedString = localStorage.getItem(cacheKey);
+      const cachedString = localStorage.getItem(dataKey);
       const cachedTimeStr = localStorage.getItem(timeKey);
 
       if (cachedString && cachedTimeStr) {
-        const cachedTime = new Date(cachedTimeStr).getTime();
-        const now = Date.now();
-        if (now - cachedTime < this.CACHE_TTL_MS) {
+        const cachedDate = new Date(cachedTimeStr);
+        const cachedTime = cachedDate.getTime();
+        const now = new Date();
+
+        // 1. Midnight 12:00 AM check: Must be on the exact same calendar day
+        const isSameCalendarDay =
+          cachedDate.getFullYear() === now.getFullYear() &&
+          cachedDate.getMonth() === now.getMonth() &&
+          cachedDate.getDate() === now.getDate();
+
+        // 2. 12-hour TTL sliding limit
+        const isWithin12Hours = (now.getTime() - cachedTime) < this.CACHE_TTL_MS;
+
+        if (isSameCalendarDay && isWithin12Hours) {
           return true;
         }
       }
@@ -85,7 +144,6 @@ export class SheetService {
     } catch (e) {
       console.warn("Storage quota warning, attempting cleanup...", e);
       try {
-        // Prune older temporary cache keys
         const now = Date.now();
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
@@ -106,24 +164,41 @@ export class SheetService {
   }
 
   /**
-   * Fetches data from specified Google Sheet tab with strict 12-hour localStorage caching
+   * Fetches data from the appropriate Google Sheet endpoint with 12-hour localStorage caching
    * & In-Flight Promise deduplication to protect Google Apps Script quota
    */
-  static async fetchSheetData(sheetName: string, forceRefresh = false): Promise<SheetRow[]> {
-    const cacheKey = `cache_data_${sheetName}`;
-    const timeKey = `cache_time_${sheetName}`;
+  static async fetchSheetData(
+    sheetName: string,
+    options?: { board?: string; className?: string; forceRefresh?: boolean } | boolean
+  ): Promise<SheetRow[]> {
+    const forceRefresh = typeof options === 'boolean' ? options : options?.forceRefresh ?? false;
+    const board = typeof options === 'object' ? options.board : undefined;
+    const className = typeof options === 'object' ? options.className : undefined;
+
+    const { dataKey, timeKey } = this.getCacheKey(sheetName, board, className);
+    const flightKey = `${sheetName}_${board || ''}_${className || ''}`;
 
     // 1. Check 12-Hour Cache First: If valid, NO API call will be made!
     if (!forceRefresh) {
       try {
-        const cachedString = localStorage.getItem(cacheKey);
+        const cachedString = localStorage.getItem(dataKey);
         const cachedTimeStr = localStorage.getItem(timeKey);
 
         if (cachedString && cachedTimeStr) {
-          const cachedTime = new Date(cachedTimeStr).getTime();
-          const now = Date.now();
+          const cachedDate = new Date(cachedTimeStr);
+          const cachedTime = cachedDate.getTime();
+          const now = new Date();
 
-          if (now - cachedTime < this.CACHE_TTL_MS) {
+          // 1. Midnight 12:00 AM reset: Must be same calendar day
+          const isSameCalendarDay =
+            cachedDate.getFullYear() === now.getFullYear() &&
+            cachedDate.getMonth() === now.getMonth() &&
+            cachedDate.getDate() === now.getDate();
+
+          // 2. Max 12-hour duration
+          const isWithin12Hours = (now.getTime() - cachedTime) < this.CACHE_TTL_MS;
+
+          if (isSameCalendarDay && isWithin12Hours) {
             const parsed = JSON.parse(cachedString);
             if (Array.isArray(parsed) && parsed.length > 0) {
               return parsed as SheetRow[];
@@ -136,14 +211,19 @@ export class SheetService {
     }
 
     // 2. In-Flight Request Deduplication: Avoid duplicate parallel calls for same sheet
-    if (this.inFlightRequests.has(sheetName)) {
-      return this.inFlightRequests.get(sheetName)!;
+    if (this.inFlightRequests.has(flightKey)) {
+      return this.inFlightRequests.get(flightKey)!;
     }
 
-    // 3. Initiate single network fetch
+    // 3. Initiate single network fetch using the correct board URL
     const fetchPromise = (async () => {
       try {
-        const url = `${this.SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
+        const targetUrl = this.getScriptUrlForSheet(sheetName, board);
+        const activeClass = className || localStorage.getItem('user_class') || '';
+        const isUserSheet = targetUrl === this.STUDENT_DATA_URL;
+        const classQuery = (!isUserSheet && activeClass) ? `&class=${encodeURIComponent(activeClass)}` : '';
+        const url = `${targetUrl}?sheet=${encodeURIComponent(sheetName)}${classQuery}`;
+
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -158,7 +238,7 @@ export class SheetService {
         const data = await response.json();
         if (Array.isArray(data)) {
           // Save in 12-hour cache
-          this.saveToLocalStorage(cacheKey, JSON.stringify(data));
+          this.saveToLocalStorage(dataKey, JSON.stringify(data));
           this.saveToLocalStorage(timeKey, new Date().toISOString());
           return data as SheetRow[];
         }
@@ -168,7 +248,7 @@ export class SheetService {
         
         // Offline Fallback: If network failed, serve existing local data even if older than 12h
         try {
-          const fallbackCached = localStorage.getItem(cacheKey);
+          const fallbackCached = localStorage.getItem(dataKey);
           if (fallbackCached) {
             return JSON.parse(fallbackCached) as SheetRow[];
           }
@@ -177,19 +257,59 @@ export class SheetService {
         }
         return [];
       } finally {
-        this.inFlightRequests.delete(sheetName);
+        this.inFlightRequests.delete(flightKey);
       }
     })();
 
-    this.inFlightRequests.set(sheetName, fetchPromise);
+    this.inFlightRequests.set(flightKey, fetchPromise);
     return fetchPromise;
   }
 
   /**
-   * Pre-loads and caches all MCQ and Study data for the user's class in 1 single pass
+   * Fetches single user row by phone from Student Data sheet (always fresh for login)
+   */
+  static async fetchUserByPhone(phone: string): Promise<SheetRow | null> {
+    try {
+      const cleanPhone = phone.trim();
+      const url = `${this.STUDENT_DATA_URL}?sheet=${encodeURIComponent('User ID')}&phone=${encodeURIComponent(cleanPhone)}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data[0] as SheetRow;
+        }
+      }
+    } catch (e) {
+      console.warn("fetchUserByPhone error:", e);
+    }
+
+    // Fallback: search full User ID sheet
+    try {
+      const fullList = await this.fetchSheetData('User ID', { forceRefresh: true });
+      const cleanPhone = phone.trim();
+      for (const row of fullList) {
+        const p = String(row['Phone'] || row['phone'] || '').trim();
+        if (p === cleanPhone) {
+          return row;
+        }
+      }
+    } catch (err) {
+      console.warn("User lookup fallback error:", err);
+    }
+    return null;
+  }
+
+  /**
+   * Pre-loads and caches all MCQ and Study data for the user's class and board in 1 single pass
    * Once called, all quizzes, chapters, and notes run 100% offline from localStorage for 12 hours.
    */
-  static async preloadClassContent(selectedClass: string, force = false): Promise<{ mcqCount: number; notesCount: number }> {
+  static async preloadClassContent(selectedClass: string, board?: string, force = false): Promise<{ mcqCount: number; notesCount: number }> {
     let prefix = "8th";
     if (selectedClass.includes("9")) prefix = "9th";
     else if (selectedClass.includes("10") || selectedClass.toLowerCase().includes("board")) prefix = "10th";
@@ -198,16 +318,18 @@ export class SheetService {
     const notesSheet = `${prefix} Notes`;
 
     // If both sheets are already cached within 12 hours and not forced, do 0 network calls!
-    if (!force && this.isCacheValid(mcqSheet) && this.isCacheValid(notesSheet)) {
-      const cachedMcq = JSON.parse(localStorage.getItem(`cache_data_${mcqSheet}`) || '[]');
-      const cachedNotes = JSON.parse(localStorage.getItem(`cache_data_${notesSheet}`) || '[]');
+    if (!force && this.isCacheValid(mcqSheet, board, selectedClass) && this.isCacheValid(notesSheet, board, selectedClass)) {
+      const { dataKey: mcqKey } = this.getCacheKey(mcqSheet, board, selectedClass);
+      const { dataKey: notesKey } = this.getCacheKey(notesSheet, board, selectedClass);
+      const cachedMcq = JSON.parse(localStorage.getItem(mcqKey) || '[]');
+      const cachedNotes = JSON.parse(localStorage.getItem(notesKey) || '[]');
       return { mcqCount: cachedMcq.length, notesCount: cachedNotes.length };
     }
 
     try {
       const [mcqData, notesData] = await Promise.all([
-        this.fetchSheetData(mcqSheet, force),
-        this.fetchSheetData(notesSheet, force).catch(() => [] as SheetRow[]),
+        this.fetchSheetData(mcqSheet, { board, className: selectedClass, forceRefresh: force }),
+        this.fetchSheetData(notesSheet, { board, className: selectedClass, forceRefresh: force }).catch(() => [] as SheetRow[]),
       ]);
 
       return { mcqCount: mcqData.length, notesCount: notesData.length };
@@ -219,18 +341,20 @@ export class SheetService {
 
   /**
    * Syncs user profile with Google Sheet with smart throttling (12-hour TTL)
-   * Avoids hitting Google Apps Script on every single page load
+   * Posts to Student Data URL with selectedBoard support matching Flutter backend
    */
   static async syncUserProfile(params: {
     name: string;
     phone: string;
     email: string;
     selectedClass: string;
+    selectedBoard?: string;
     purixId?: string;
     deviceInfo?: string;
     force?: boolean;
   }): Promise<{ plan: string; status: string; uniqueId: string }> {
     const finalPurixId = params.purixId || localStorage.getItem('user_uid') || this.generatePurixId();
+    const finalBoard = params.selectedBoard || localStorage.getItem('user_board') || "Bihar Board (BSEB)";
     const finalDevice = params.deviceInfo || this.getDeviceInfo();
     const currentDateTime = new Date().toISOString().substring(0, 16).replace('T', ' ');
 
@@ -249,45 +373,47 @@ export class SheetService {
     }
 
     try {
-      // 1. Post registration / login ping to Google Apps Script
-      await fetch(this.SCRIPT_URL, {
+      // 1. Post registration / login ping to Student Data Apps Script
+      // Sends device information (Brand, Model, OS) completely silently in the background
+      const payload = {
+        name: params.name,
+        phone: params.phone,
+        email: params.email,
+        purix_id: finalPurixId,
+        selected_class: params.selectedClass,
+        selected_board: finalBoard,
+        device_info: finalDevice,
+        device: finalDevice,
+        model: finalDevice,
+        login_time: currentDateTime,
+      };
+
+      await fetch(this.STUDENT_DATA_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
         },
-        body: JSON.stringify({
-          name: params.name,
-          phone: params.phone,
-          email: params.email,
-          purix_id: finalPurixId,
-          selected_class: params.selectedClass,
-          device_info: finalDevice,
-          login_time: currentDateTime,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch (e) {
       console.warn("Sync post warning:", e);
     }
 
-    // 2. Fetch User ID sheet to check live Plan and Status
+    // 2. Fetch specific user record by phone to check live Plan and Status
     try {
-      // Use cached User ID if within 12 hours unless forced
-      const usersData = await this.fetchSheetData('User ID', params.force || isCacheExpired);
-      const cleanPhone = params.phone.trim();
+      const userRow = await this.fetchUserByPhone(params.phone);
+      if (userRow) {
+        const rawPlan = String(userRow['Plan'] || userRow['plan'] || userRow['PLAN'] || userRow['Subscription'] || 'FREE').trim().toUpperCase();
+        const plan = rawPlan === 'PRO' ? 'PRO' : 'FREE';
+        const status = String(userRow['Status'] || userRow['status'] || 'ACTIVE').trim().toUpperCase();
+        const uid = String(userRow['Unique ID'] || userRow['UniqueID'] || userRow['Unique ID '] || finalPurixId).trim();
 
-      for (const row of usersData) {
-        const rowPhone = String(row['Phone'] || row['phone'] || '').trim();
-        if (rowPhone === cleanPhone) {
-          const plan = String(row['Plan'] || 'FREE').trim().toUpperCase();
-          const status = String(row['Status'] || 'ACTIVE').trim().toUpperCase();
-          const uid = String(row['Unique ID'] || row['Unique ID '] || finalPurixId).trim();
+        localStorage.setItem('user_sub', plan);
+        localStorage.setItem('user_status', status);
+        localStorage.setItem('user_uid', uid);
+        localStorage.setItem(lastSyncKey, new Date().toISOString());
 
-          localStorage.setItem('user_sub', plan);
-          localStorage.setItem('user_status', status);
-          localStorage.setItem(lastSyncKey, new Date().toISOString());
-
-          return { plan, status, uniqueId: uid };
-        }
+        return { plan, status, uniqueId: uid };
       }
     } catch (err) {
       console.warn("Could not query User ID sheet:", err);

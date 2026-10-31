@@ -3,6 +3,7 @@ import { NavigationScreen, StudyMode } from './types';
 import { SheetService } from './services/sheetService';
 import { SessionSecurity } from './services/sessionSecurity';
 import { LoginScreen } from './components/LoginScreen';
+import { BoardScreen } from './components/BoardScreen';
 import { ClassScreen } from './components/ClassScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { SubjectScreen } from './components/SubjectScreen';
@@ -23,6 +24,10 @@ export const App: React.FC = () => {
     return localStorage.getItem('user_name') || 'Student';
   });
 
+  const [userBoard, setUserBoard] = useState<string>(() => {
+    return localStorage.getItem('user_board') || 'Bihar Board (BSEB)';
+  });
+
   const [userClass, setUserClass] = useState<string | null>(() => {
     return localStorage.getItem('user_class');
   });
@@ -31,10 +36,13 @@ export const App: React.FC = () => {
   const [screen, setScreen] = useState<NavigationScreen>(() => {
     const logged = localStorage.getItem('is_logged_in') === 'true';
     const cls = localStorage.getItem('user_class');
-    if (logged && cls) {
+    const board = localStorage.getItem('user_board');
+    if (logged && cls && board) {
       return { name: 'dashboard' };
-    } else if (logged) {
+    } else if (logged && board) {
       return { name: 'classSelect' };
+    } else if (logged) {
+      return { name: 'boardSelect' };
     }
     return { name: 'login' };
   });
@@ -77,10 +85,40 @@ export const App: React.FC = () => {
   const handleLoginSuccess = (name: string) => {
     setUserName(name);
     setIsLoggedIn(true);
+    const existingBoard = localStorage.getItem('user_board');
     const existingClass = localStorage.getItem('user_class');
-    if (existingClass) {
+    if (existingBoard && existingClass) {
+      setUserBoard(existingBoard);
       setUserClass(existingClass);
       setScreen({ name: 'dashboard' });
+    } else if (existingBoard) {
+      setUserBoard(existingBoard);
+      setScreen({ name: 'classSelect' });
+    } else {
+      setScreen({ name: 'boardSelect' });
+    }
+  };
+
+  const handleSelectBoard = (selectedBoard: string, isSwitching?: boolean) => {
+    localStorage.setItem('user_board', selectedBoard);
+    setUserBoard(selectedBoard);
+
+    // Sync board update
+    const phone = localStorage.getItem('user_phone') || '';
+    const email = localStorage.getItem('user_email') || '';
+    if (phone) {
+      SheetService.syncUserProfile({
+        name: userName,
+        phone,
+        email,
+        selectedClass: userClass || 'Class 10th',
+        selectedBoard,
+      }).catch(() => {});
+    }
+
+    if (isSwitching) {
+      setScreen({ name: 'dashboard' });
+      showToast(`Switched to ${selectedBoard} • Content updated`, 'success');
     } else {
       setScreen({ name: 'classSelect' });
     }
@@ -91,8 +129,8 @@ export const App: React.FC = () => {
     setUserClass(selectedClass);
     setScreen({ name: 'dashboard' });
 
-    // Preload & cache all MCQs and study content for this class into 12-hour localStorage
-    SheetService.preloadClassContent(selectedClass).catch(() => {});
+    // Preload & cache all MCQs and study content for this class & board into 12-hour localStorage
+    SheetService.preloadClassContent(selectedClass, userBoard).catch(() => {});
 
     // Sync class change
     const phone = localStorage.getItem('user_phone') || '';
@@ -103,7 +141,8 @@ export const App: React.FC = () => {
         phone,
         email,
         selectedClass,
-      });
+        selectedBoard: userBoard,
+      }).catch(() => {});
     }
   };
 
@@ -111,6 +150,7 @@ export const App: React.FC = () => {
     localStorage.clear();
     setIsLoggedIn(false);
     setUserClass(null);
+    setUserBoard('Bihar Board (BSEB)');
     setUserName('Student');
     setScreen({ name: 'login' });
   };
@@ -151,11 +191,27 @@ export const App: React.FC = () => {
           />
         );
 
+      case 'boardSelect':
+        return (
+          <BoardScreen
+            userName={userName}
+            currentBoard={userBoard}
+            isSwitching={screen.isSwitching}
+            onSelectBoard={(board) => handleSelectBoard(board, screen.isSwitching)}
+            onBack={screen.isSwitching ? () => setScreen({ name: 'dashboard' }) : undefined}
+          />
+        );
+
       case 'classSelect':
         return (
           <ClassScreen
             userName={userName}
+            selectedBoard={userBoard}
+            currentClass={userClass || undefined}
+            isSwitching={!!userClass}
+            onChangeBoard={() => setScreen({ name: 'boardSelect', isSwitching: true })}
             onSelectClass={handleSelectClass}
+            onBack={userClass ? () => setScreen({ name: 'dashboard' }) : undefined}
           />
         );
 
@@ -164,10 +220,12 @@ export const App: React.FC = () => {
           <DashboardScreen
             userName={userName}
             selectedClass={userClass || 'Class 10th'}
+            selectedBoard={userBoard}
             onNavigateToModule={navigateToSubject}
             onNavigateToSubject={(mode, subjectName) => navigateToSubSubject(mode, subjectName)}
             onNavigateToFree={navigateToFreeContent}
             onSwitchClass={() => setScreen({ name: 'classSelect' })}
+            onSwitchBoard={() => setScreen({ name: 'boardSelect', isSwitching: true })}
             onLogout={handleLogout}
             onShowMessage={showToast}
           />
@@ -215,7 +273,7 @@ export const App: React.FC = () => {
               })
             }
             onUpgradePrompt={() => {
-              showToast("🔒 PRO CONTENT: Please upgrade to Purix PRO from the Dashboard to unlock all tests & materials.", 'error');
+              showToast("🔒 PRO CONTENT: Please contact Purix Classroom Center from Dashboard to unlock all tests & materials.", 'error');
               setScreen({ name: 'dashboard' });
             }}
           />
@@ -295,7 +353,7 @@ export const App: React.FC = () => {
             </div>
             <button
               onClick={() => setToast(null)}
-              className="text-white/40 hover:text-white p-0.5"
+              className="text-white/40 hover:text-white p-0.5 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

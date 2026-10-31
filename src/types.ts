@@ -73,6 +73,7 @@ export interface QuizQuestionData {
 
 export type NavigationScreen = 
   | { name: 'login' }
+  | { name: 'boardSelect'; isSwitching?: boolean }
   | { name: 'classSelect' }
   | { name: 'dashboard' }
   | { name: 'subject'; mode: StudyMode }

@@ -1,0 +1,683 @@
+0s
+2m 18s
+Run flutter build apk --release --no-tree-shake-icons
+
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+Running Gradle task 'assembleRelease'...                        
+lib/screens/login_screen.dart:30:28: Error: The '!==' operator is not supported.
+    if (cleanMobile.length !== 10) {
+                           ^
+lib/screens/login_screen.dart:35:61: Error: The '===' operator is not supported.
+    if (!cadetName.trim() || cadetName.trim().toLowerCase() === 'student') {
+                                                            ^
+lib/screens/login_screen.dart:66:31: Error: The '===' operator is not supported.
+        planStatus = (rawPlan === 'PRO' || rawPlan === 'VERIFIED') ? 'PRO' : 'FREE';
+                              ^
+lib/screens/login_screen.dart:66:52: Error: The '===' operator is not supported.
+        planStatus = (rawPlan === 'PRO' || rawPlan === 'VERIFIED') ? 'PRO' : 'FREE';
+                                                   ^
+lib/screens/login_screen.dart:71:39: Error: The '===' operator is not supported.
+      if (isOldUser && (accountStatus === 'DEACTIVE' || accountStatus === 'BANNED' || accountStatus === 'BLOCKED')) {
+                                      ^
+lib/screens/login_screen.dart:71:71: Error: The '===' operator is not supported.
+      if (isOldUser && (accountStatus === 'DEACTIVE' || accountStatus === 'BANNED' || accountStatus === 'BLOCKED')) {
+                                                                      ^
+lib/screens/login_screen.dart:71:101: Error: The '===' operator is not supported.
+      if (isOldUser && (accountStatus === 'DEACTIVE' || accountStatus === 'BANNED' || accountStatus === 'BLOCKED')) {
+                                                                                          ^
+lib/screens/login_screen.dart:92:29: Error: The '===' operator is not supported.
+      if (syncResult.status === 'DEACTIVE') {
+                            ^
+lib/screens/login_screen.dart:99:35: Error: The '===' operator is not supported.
+      const finalPlan = (syncPlan === 'PRO' || syncPlan === 'VERIFIED') ? 'PRO' : (planStatus === 'PRO' ? 'PRO' : 'FREE');
+                                  ^
+lib/screens/login_screen.dart:99:57: Error: The '===' operator is not supported.
+      const finalPlan = (syncPlan === 'PRO' || syncPlan === 'VERIFIED') ? 'PRO' : (planStatus === 'PRO' ? 'PRO' : 'FREE');
+                                                        ^
+lib/screens/login_screen.dart:99:95: Error: The '===' operator is not supported.
+      const finalPlan = (syncPlan === 'PRO' || syncPlan === 'VERIFIED') ? 'PRO' : (planStatus === 'PRO' ? 'PRO' : 'FREE');
+                                                                                          ^
+lib/screens/login_screen.dart:1:8: Error: Expected a String, but got 'React'.
+import React, { useState } from 'react';
+       ^^^^^
+lib/screens/login_screen.dart:1:1: Error: Expected ';' after this.
+import React, { useState } from 'react';
+^^^^^^
+lib/screens/login_screen.dart:1:8: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState } from 'react';
+       ^^^^^
+lib/screens/login_screen.dart:1:15: Error: Expected an identifier, but got '{'.
+Try inserting an identifier before '{'.
+import React, { useState } from 'react';
+              ^
+lib/screens/login_screen.dart:1:15: Error: Expected ';' after this.
+import React, { useState } from 'react';
+              ^
+lib/screens/login_screen.dart:1:17: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState } from 'react';
+                ^^^^^^^^
+lib/screens/login_screen.dart:1:17: Error: Expected ';' after this.
+import React, { useState } from 'react';
+                ^^^^^^^^
+lib/screens/login_screen.dart:1:26: Error: Expected a declaration, but got '}'.
+import React, { useState } from 'react';
+                         ^
+lib/screens/login_screen.dart:1:28: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState } from 'react';
+                           ^^^^
+lib/screens/login_screen.dart:1:28: Error: Expected ';' after this.
+import React, { useState } from 'react';
+                           ^^^^
+lib/screens/login_screen.dart:1:33: Error: Expected a declaration, but got ''react''.
+import React, { useState } from 'react';
+                                ^^^^^^^
+lib/screens/login_screen.dart:1:40: Error: Unexpected token ';'.
+import React, { useState } from 'react';
+                                       ^
+lib/screens/login_screen.dart:2:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { SheetService } from '../services/sheetService';
+^^^^^^
+lib/screens/login_screen.dart:2:8: Error: Expected a String, but got '{'.
+import { SheetService } from '../services/sheetService';
+       ^
+lib/screens/login_screen.dart:2:1: Error: Expected ';' after this.
+import { SheetService } from '../services/sheetService';
+^^^^^^
+lib/screens/login_screen.dart:2:8: Error: Expected a declaration, but got '{'.
+import { SheetService } from '../services/sheetService';
+       ^
+lib/screens/login_screen.dart:2:25: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/login_screen.dart:2:25: Error: Expected ';' after this.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/login_screen.dart:2:25: Error: 'from' is already declared in this scope.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/login_screen.dart:1:28: Context: Previous declaration of 'from'.
+import React, { useState } from 'react';
+                           ^^^^
+lib/screens/login_screen.dart:2:30: Error: Expected a declaration, but got ''../services/sheetService''.
+import { SheetService } from '../services/sheetService';
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+lib/screens/login_screen.dart:2:56: Error: Unexpected token ';'.
+import { SheetService } from '../services/sheetService';
+                                                       ^
+lib/screens/login_screen.dart:3:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+^^^^^^
+lib/screens/login_screen.dart:3:8: Error: Expected a String, but got '{'.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+       ^
+lib/screens/login_screen.dart:3:1: Error: Expected ';' after this.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+^^^^^^
+lib/screens/login_screen.dart:3:8: Error: Expected a declaration, but got '{'.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+       ^
+lib/screens/login_screen.dart:3:87: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+                                                                                      ^^^^
+lib/screens/login_screen.dart:3:87: Error: Expected ';' after this.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+                                                                                      ^^^^
+lib/screens/login_screen.dart:3:87: Error: 'from' is already declared in this scope.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+                                                                                      ^^^^
+lib/screens/login_screen.dart:2:25: Context: Previous declaration of 'from'.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/login_screen.dart:3:92: Error: Expected a declaration, but got ''lucide-react''.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+                                                                                          ^^^^^^^^^^^^^^
+lib/screens/login_screen.dart:3:106: Error: Unexpected token ';'.
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+                                                                                          ^
+lib/screens/login_screen.dart:5:1: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+interface LoginScreenProps {
+^^^^^^^^^
+lib/screens/login_screen.dart:5:1: Error: Expected ';' after this.
+interface LoginScreenProps {
+^^^^^^^^^
+lib/screens/login_screen.dart:5:11: Error: A function declaration needs an explicit list of parameters.
+Try adding a parameter list to the function declaration.
+interface LoginScreenProps {
+          ^^^^^^^^^^^^^^^^
+lib/screens/login_screen.dart:10:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+^^^^^^
+lib/screens/login_screen.dart:10:8: Error: Expected a String, but got 'const'.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+       ^^^^^
+lib/screens/login_screen.dart:10:1: Error: Expected ';' after this.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+^^^^^^
+lib/screens/login_screen.dart:10:14: Error: The const variable 'LoginScreen' must be initialized.
+Try adding an initializer ('= expression') to the declaration.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+             ^^^^^^^^^^^
+lib/screens/login_screen.dart:10:14: Error: Expected ';' after this.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+             ^^^^^^^^^^^
+lib/screens/login_screen.dart:10:25: Error: Expected a declaration, but got ':'.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+                        ^
+lib/screens/login_screen.dart:10:27: Error: A function declaration needs an explicit list of parameters.
+Try adding a parameter list to the function declaration.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+                          ^^^^^
+lib/screens/login_screen.dart:10:32: Error: Expected '{' before this.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+                               ^
+lib/screens/login_screen.dart:10:32: Error: Expected a declaration, but got '.'.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+                               ^
+lib/screens/login_screen.dart:10:54: Error: Unexpected token '='.
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+                                                     ^
+lib/screens/login_screen.dart:11:52: Error: Expected '}' before this.
+  const [isLoading, setIsLoading] = useState(false);
+                                                   ^
+lib/screens/dashboard_screen.dart:82:45: Error: The '===' operator is not supported.
+    subscriptionStatus.trim().toUpperCase() === 'PRO' || 
+                                            ^
+lib/screens/dashboard_screen.dart:83:45: Error: The '===' operator is not supported.
+    subscriptionStatus.trim().toUpperCase() === 'VERIFIED';
+                                            ^
+lib/screens/dashboard_screen.dart:107:58: Error: The '===' operator is not supported.
+      const userVerified = res.plan.trim().toUpperCase() === 'PRO' || res.plan.trim().toUpperCase() === 'VERIFIED';
+                                                         ^
+lib/screens/dashboard_screen.dart:107:101: Error: The '===' operator is not supported.
+      const userVerified = res.plan.trim().toUpperCase() === 'PRO' || res.plan.trim().toUpperCase() === 'VERIFIED';
+                                                                                          ^
+lib/screens/dashboard_screen.dart:137:39: Error: The '!==' operator is not supported.
+      if (phone && name.toLowerCase() !== 'student') {
+                                      ^
+lib/screens/dashboard_screen.dart:154:27: Error: The '===' operator is not supported.
+          if (cleanStatus === 'deactive' || cleanStatus === 'banned' || cleanStatus === 'blocked' || cleanSub === 'DEACTIVE') {
+                          ^
+lib/screens/dashboard_screen.dart:154:57: Error: The '===' operator is not supported.
+          if (cleanStatus === 'deactive' || cleanStatus === 'banned' || cleanStatus === 'blocked' || cleanSub === 'DEACTIVE') {
+                                                        ^
+lib/screens/dashboard_screen.dart:154:85: Error: The '===' operator is not supported.
+          if (cleanStatus === 'deactive' || cleanStatus === 'banned' || cleanStatus === 'blocked' || cleanSub === 'DEACTIVE') {
+                                                                                    ^
+lib/screens/dashboard_screen.dart:154:111: Error: The '===' operator is not supported.
+          if (cleanStatus === 'deactive' || cleanStatus === 'banned' || cleanStatus === 'blocked' || cleanSub === 'DEACTIVE') {
+                                                                                          ^
+lib/screens/dashboard_screen.dart:161:43: Error: The '===' operator is not supported.
+          const isUserVerified = cleanSub === 'PRO' || cleanSub === 'VERIFIED';
+                                          ^
+lib/screens/dashboard_screen.dart:161:65: Error: The '===' operator is not supported.
+          const isUserVerified = cleanSub === 'PRO' || cleanSub === 'VERIFIED';
+                                                                ^
+lib/screens/dashboard_screen.dart:178:80: Error: The '===' operator is not supported.
+    if (!currentPhone || currentPhone.length < 10 || currentName.toLowerCase() === 'student' || !currentEmail) {
+                                                                               ^
+lib/screens/dashboard_screen.dart:196:59: Error: The '===' operator is not supported.
+    if (!editName.trim() || editName.trim().toLowerCase() === 'student') {
+                                                          ^
+lib/screens/dashboard_screen.dart:201:27: Error: The '!==' operator is not supported.
+    if (cleanPhone.length !== 10) {
+                          ^
+lib/screens/dashboard_screen.dart:231:22: Error: The '===' operator is not supported.
+      if (res.status === 'DEACTIVE') {
+                     ^
+lib/screens/dashboard_screen.dart:238:60: Error: The '===' operator is not supported.
+      const isUserVerified = res.plan.trim().toUpperCase() === 'PRO' || res.plan.trim().toUpperCase() === 'VERIFIED';
+                                                           ^
+lib/screens/dashboard_screen.dart:238:103: Error: The '===' operator is not supported.
+      const isUserVerified = res.plan.trim().toUpperCase() === 'PRO' || res.plan.trim().toUpperCase() === 'VERIFIED';
+                                                                                          ^
+lib/screens/dashboard_screen.dart:260:103: Error: The '===' operator is not supported.
+        if (key && key.startsWith('quiz_') && key.endsWith('_completed') && localStorage.getItem(key) === 'true') {
+                                                                                          ^
+lib/screens/dashboard_screen.dart:640:40: Error: The non-ASCII character '•' (U+2022) can't be used in identifiers, only in strings and comments.
+Try using an US-ASCII letter, a digit, '_' (an underscore), or '$' (a dollar sign).
+                CLASS: {selectedClass} • {selectedBoard}
+                                       ^
+lib/screens/dashboard_screen.dart:1:8: Error: Expected a String, but got 'React'.
+import React, { useState, useEffect, useMemo } from 'react';
+       ^^^^^
+lib/screens/dashboard_screen.dart:1:1: Error: Expected ';' after this.
+import React, { useState, useEffect, useMemo } from 'react';
+^^^^^^
+lib/screens/dashboard_screen.dart:1:8: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState, useEffect, useMemo } from 'react';
+       ^^^^^
+lib/screens/dashboard_screen.dart:1:15: Error: Expected an identifier, but got '{'.
+Try inserting an identifier before '{'.
+import React, { useState, useEffect, useMemo } from 'react';
+              ^
+lib/screens/dashboard_screen.dart:1:15: Error: Expected ';' after this.
+import React, { useState, useEffect, useMemo } from 'react';
+              ^
+lib/screens/dashboard_screen.dart:1:17: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState, useEffect, useMemo } from 'react';
+                ^^^^^^^^
+lib/screens/dashboard_screen.dart:1:38: Error: Expected ';' after this.
+import React, { useState, useEffect, useMemo } from 'react';
+                                     ^^^^^^^
+lib/screens/dashboard_screen.dart:1:46: Error: Expected a declaration, but got '}'.
+import React, { useState, useEffect, useMemo } from 'react';
+                                             ^
+lib/screens/dashboard_screen.dart:1:48: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import React, { useState, useEffect, useMemo } from 'react';
+                                               ^^^^
+lib/screens/dashboard_screen.dart:1:48: Error: Expected ';' after this.
+import React, { useState, useEffect, useMemo } from 'react';
+                                               ^^^^
+lib/screens/dashboard_screen.dart:1:53: Error: Expected a declaration, but got ''react''.
+import React, { useState, useEffect, useMemo } from 'react';
+                                                    ^^^^^^^
+lib/screens/dashboard_screen.dart:1:60: Error: Unexpected token ';'.
+import React, { useState, useEffect, useMemo } from 'react';
+                                                           ^
+lib/screens/dashboard_screen.dart:2:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { SheetService } from '../services/sheetService';
+^^^^^^
+lib/screens/dashboard_screen.dart:2:8: Error: Expected a String, but got '{'.
+import { SheetService } from '../services/sheetService';
+       ^
+lib/screens/dashboard_screen.dart:2:1: Error: Expected ';' after this.
+import { SheetService } from '../services/sheetService';
+^^^^^^
+lib/screens/dashboard_screen.dart:2:8: Error: Expected a declaration, but got '{'.
+import { SheetService } from '../services/sheetService';
+       ^
+lib/screens/dashboard_screen.dart:2:25: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/dashboard_screen.dart:2:25: Error: Expected ';' after this.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/dashboard_screen.dart:2:25: Error: 'from' is already declared in this scope.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/dashboard_screen.dart:1:48: Context: Previous declaration of 'from'.
+import React, { useState, useEffect, useMemo } from 'react';
+                                               ^^^^
+lib/screens/dashboard_screen.dart:2:30: Error: Expected a declaration, but got ''../services/sheetService''.
+import { SheetService } from '../services/sheetService';
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:2:56: Error: Unexpected token ';'.
+import { SheetService } from '../services/sheetService';
+                                                       ^
+lib/screens/dashboard_screen.dart:3:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { StudyMode } from '../types';
+^^^^^^
+lib/screens/dashboard_screen.dart:3:8: Error: Expected a String, but got '{'.
+import { StudyMode } from '../types';
+       ^
+lib/screens/dashboard_screen.dart:3:1: Error: Expected ';' after this.
+import { StudyMode } from '../types';
+^^^^^^
+lib/screens/dashboard_screen.dart:3:8: Error: Expected a declaration, but got '{'.
+import { StudyMode } from '../types';
+       ^
+lib/screens/dashboard_screen.dart:3:22: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import { StudyMode } from '../types';
+                     ^^^^
+lib/screens/dashboard_screen.dart:3:22: Error: Expected ';' after this.
+import { StudyMode } from '../types';
+                     ^^^^
+lib/screens/dashboard_screen.dart:3:22: Error: 'from' is already declared in this scope.
+import { StudyMode } from '../types';
+                     ^^^^
+lib/screens/dashboard_screen.dart:2:25: Context: Previous declaration of 'from'.
+import { SheetService } from '../services/sheetService';
+                        ^^^^
+lib/screens/dashboard_screen.dart:3:27: Error: Expected a declaration, but got ''../types''.
+import { StudyMode } from '../types';
+                          ^^^^^^^^^^
+lib/screens/dashboard_screen.dart:3:37: Error: Unexpected token ';'.
+import { StudyMode } from '../types';
+                                    ^
+lib/screens/dashboard_screen.dart:4:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { 
+^^^^^^
+lib/screens/dashboard_screen.dart:4:8: Error: Expected a String, but got '{'.
+import { 
+       ^
+lib/screens/dashboard_screen.dart:4:1: Error: Expected ';' after this.
+import { 
+^^^^^^
+lib/screens/dashboard_screen.dart:4:8: Error: Expected a declaration, but got '{'.
+import { 
+       ^
+lib/screens/dashboard_screen.dart:30:3: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+} from 'lucide-react';
+  ^^^^
+lib/screens/dashboard_screen.dart:30:3: Error: Expected ';' after this.
+} from 'lucide-react';
+  ^^^^
+lib/screens/dashboard_screen.dart:30:3: Error: 'from' is already declared in this scope.
+} from 'lucide-react';
+  ^^^^
+lib/screens/dashboard_screen.dart:3:22: Context: Previous declaration of 'from'.
+import { StudyMode } from '../types';
+                     ^^^^
+lib/screens/dashboard_screen.dart:30:8: Error: Expected a declaration, but got ''lucide-react''.
+} from 'lucide-react';
+       ^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:30:22: Error: Unexpected token ';'.
+} from 'lucide-react';
+                     ^
+lib/screens/dashboard_screen.dart:32:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+import { LearningProgressTracker } from './LearningProgressTracker';
+^^^^^^
+lib/screens/dashboard_screen.dart:32:8: Error: Expected a String, but got '{'.
+import { LearningProgressTracker } from './LearningProgressTracker';
+       ^
+lib/screens/dashboard_screen.dart:32:1: Error: Expected ';' after this.
+import { LearningProgressTracker } from './LearningProgressTracker';
+^^^^^^
+lib/screens/dashboard_screen.dart:32:8: Error: Expected a declaration, but got '{'.
+import { LearningProgressTracker } from './LearningProgressTracker';
+       ^
+lib/screens/dashboard_screen.dart:32:36: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+import { LearningProgressTracker } from './LearningProgressTracker';
+                                   ^^^^
+lib/screens/dashboard_screen.dart:32:36: Error: Expected ';' after this.
+import { LearningProgressTracker } from './LearningProgressTracker';
+                                   ^^^^
+lib/screens/dashboard_screen.dart:32:36: Error: 'from' is already declared in this scope.
+import { LearningProgressTracker } from './LearningProgressTracker';
+                                   ^^^^
+lib/screens/dashboard_screen.dart:30:3: Context: Previous declaration of 'from'.
+} from 'lucide-react';
+  ^^^^
+lib/screens/dashboard_screen.dart:32:41: Error: Expected a declaration, but got ''./LearningProgressTracker''.
+import { LearningProgressTracker } from './LearningProgressTracker';
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:32:68: Error: Unexpected token ';'.
+import { LearningProgressTracker } from './LearningProgressTracker';
+                                                                   ^
+lib/screens/dashboard_screen.dart:34:1: Error: Variables must be declared using the keywords 'const', 'final', 'var' or a type name.
+Try adding the name of the type of the variable or the keyword 'var'.
+interface DashboardScreenProps {
+^^^^^^^^^
+lib/screens/dashboard_screen.dart:34:1: Error: Expected ';' after this.
+interface DashboardScreenProps {
+^^^^^^^^^
+lib/screens/dashboard_screen.dart:34:11: Error: A function declaration needs an explicit list of parameters.
+Try adding a parameter list to the function declaration.
+interface DashboardScreenProps {
+          ^^^^^^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:47:1: Error: Directives must appear before any declarations.
+Try moving the directive before any declarations.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+^^^^^^
+lib/screens/dashboard_screen.dart:47:8: Error: Expected a String, but got 'const'.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+       ^^^^^
+lib/screens/dashboard_screen.dart:47:1: Error: Expected ';' after this.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+^^^^^^
+lib/screens/dashboard_screen.dart:47:14: Error: The const variable 'DashboardScreen' must be initialized.
+Try adding an initializer ('= expression') to the declaration.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+             ^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:47:14: Error: Expected ';' after this.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+             ^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:47:29: Error: Expected a declaration, but got ':'.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+                            ^
+lib/screens/dashboard_screen.dart:47:31: Error: A function declaration needs an explicit list of parameters.
+Try adding a parameter list to the function declaration.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+                              ^^^^^
+lib/screens/dashboard_screen.dart:47:36: Error: Expected '{' before this.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+                                   ^
+lib/screens/dashboard_screen.dart:47:36: Error: Expected a declaration, but got '.'.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+                                   ^
+lib/screens/dashboard_screen.dart:47:62: Error: Unexpected token '='.
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+                                                             ^
+lib/screens/dashboard_screen.dart:59:72: Error: Expected '}' before this.
+  const [currentName, setCurrentName] = useState(userName || 'Student');
+                                                                       ^
+lib/main.dart:100:59: Error: Couldn't find constructor 'LoginScreen'.
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                                          ^^^^^^^^^^^
+lib/main.dart:135:19: Error: Couldn't find constructor 'LoginScreen'.
+          : const LoginScreen(),
+                  ^^^^^^^^^^^
+lib/screens/login_screen.dart:6:30: Error: Undefined name 'string'.
+  onLoginSuccess: (userName: string) => void;
+                             ^^^^^^
+lib/screens/login_screen.dart:6:28: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onLoginSuccess: (userName: string) => void;
+                           ^
+lib/screens/login_screen.dart:6:41: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onLoginSuccess: (userName: string) => void;
+                                        ^^^^
+lib/screens/login_screen.dart:6:38: Error: Expected ';' after this.
+  onLoginSuccess: (userName: string) => void;
+                                     ^^
+lib/screens/login_screen.dart:6:45: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onLoginSuccess: (userName: string) => void;
+                                            ^
+lib/screens/login_screen.dart:7:24: Error: Undefined name 'string'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                       ^^^^^^
+lib/screens/login_screen.dart:7:22: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                     ^
+lib/screens/login_screen.dart:7:36: Error: Expected ')' before this.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                   ^
+lib/screens/login_screen.dart:7:72: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                       ^^^^
+lib/screens/login_screen.dart:7:69: Error: Expected ';' after this.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                    ^^
+lib/screens/login_screen.dart:7:76: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                           ^
+lib/screens/login_screen.dart:11:21: Error: Undefined name 'setIsLoading'.
+  const [isLoading, setIsLoading] = useState(false);
+                    ^^^^^^^^^^^^
+lib/screens/login_screen.dart:11:10: Error: Undefined name 'isLoading'.
+  const [isLoading, setIsLoading] = useState(false);
+         ^^^^^^^^^
+lib/screens/login_screen.dart:11:35: Error: Can't assign to this.
+  const [isLoading, setIsLoading] = useState(false);
+                                  ^
+lib/screens/dashboard_screen.dart:35:13: Error: Undefined name 'string'.
+  userName: string;
+            ^^^^^^
+lib/screens/dashboard_screen.dart:36:18: Error: Undefined name 'string'.
+  selectedClass: string;
+                 ^^^^^^
+lib/screens/dashboard_screen.dart:37:3: Error: Undefined name 'selectedBoard'.
+  selectedBoard?: string;
+  ^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:37:17: Error: Expected an identifier, but got ':'.
+Try inserting an identifier before ':'.
+  selectedBoard?: string;
+                ^
+lib/screens/dashboard_screen.dart:37:19: Error: Undefined name 'string'.
+  selectedBoard?: string;
+                  ^^^^^^
+lib/screens/dashboard_screen.dart:38:30: Error: Undefined name 'StudyMode'.
+  onNavigateToModule: (mode: StudyMode) => void;
+                             ^^^^^^^^^
+lib/screens/dashboard_screen.dart:38:28: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onNavigateToModule: (mode: StudyMode) => void;
+                           ^
+lib/screens/dashboard_screen.dart:38:44: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onNavigateToModule: (mode: StudyMode) => void;
+                                           ^^^^
+lib/screens/dashboard_screen.dart:38:41: Error: Expected ';' after this.
+  onNavigateToModule: (mode: StudyMode) => void;
+                                        ^^
+lib/screens/dashboard_screen.dart:38:48: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onNavigateToModule: (mode: StudyMode) => void;
+                                               ^
+lib/screens/dashboard_screen.dart:39:27: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onNavigateToFree: () => void;
+                          ^^^^
+lib/screens/dashboard_screen.dart:39:24: Error: Expected ';' after this.
+  onNavigateToFree: () => void;
+                       ^^
+lib/screens/dashboard_screen.dart:39:31: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onNavigateToFree: () => void;
+                              ^
+lib/screens/dashboard_screen.dart:40:24: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onSwitchClass: () => void;
+                       ^^^^
+lib/screens/dashboard_screen.dart:40:21: Error: Expected ';' after this.
+  onSwitchClass: () => void;
+                    ^^
+lib/screens/dashboard_screen.dart:40:28: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onSwitchClass: () => void;
+                           ^
+lib/screens/dashboard_screen.dart:41:3: Error: Undefined name 'onSwitchBoard'.
+  onSwitchBoard?: () => void;
+  ^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:41:17: Error: Expected an identifier, but got ':'.
+Try inserting an identifier before ':'.
+  onSwitchBoard?: () => void;
+                ^
+lib/screens/dashboard_screen.dart:41:25: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onSwitchBoard?: () => void;
+                        ^^^^
+lib/screens/dashboard_screen.dart:41:22: Error: Expected ';' after this.
+  onSwitchBoard?: () => void;
+                     ^^
+lib/screens/dashboard_screen.dart:41:29: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onSwitchBoard?: () => void;
+                            ^
+lib/screens/dashboard_screen.dart:42:19: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onLogout: () => void;
+                  ^^^^
+lib/screens/dashboard_screen.dart:42:16: Error: Expected ';' after this.
+  onLogout: () => void;
+               ^^
+lib/screens/dashboard_screen.dart:42:23: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onLogout: () => void;
+                      ^
+lib/screens/dashboard_screen.dart:43:24: Error: Undefined name 'string'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                       ^^^^^^
+lib/screens/dashboard_screen.dart:43:22: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                     ^
+lib/screens/dashboard_screen.dart:43:36: Error: Expected ')' before this.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                   ^
+lib/screens/dashboard_screen.dart:43:72: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                       ^^^^
+lib/screens/dashboard_screen.dart:43:69: Error: Expected ';' after this.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                    ^^
+lib/screens/dashboard_screen.dart:43:76: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
+                                                                           ^
+lib/screens/dashboard_screen.dart:44:3: Error: Undefined name 'onNavigateToSubject'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+  ^^^^^^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:44:23: Error: Expected an identifier, but got ':'.
+Try inserting an identifier before ':'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                      ^
+lib/screens/dashboard_screen.dart:44:32: Error: Undefined name 'StudyMode'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                               ^^^^^^^^^
+lib/screens/dashboard_screen.dart:44:30: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                             ^
+lib/screens/dashboard_screen.dart:44:56: Error: Undefined name 'string'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                                                       ^^^^^^
+lib/screens/dashboard_screen.dart:44:54: Error: Non-optional parameters can't have a default value.
+Try removing the default value or making the parameter optional.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                                                     ^
+lib/screens/dashboard_screen.dart:44:67: Error: Expected an identifier, but got 'void'.
+Try inserting an identifier before 'void'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                                                                  ^^^^
+lib/screens/dashboard_screen.dart:44:64: Error: Expected ';' after this.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                                                               ^^
+lib/screens/dashboard_screen.dart:44:71: Error: Expected an identifier, but got ';'.
+Try inserting an identifier before ';'.
+  onNavigateToSubject?: (mode: StudyMode, subjectName: string) => void;
+                                                                      ^
+lib/screens/dashboard_screen.dart:59:23: Error: Undefined name 'setCurrentName'.
+  const [currentName, setCurrentName] = useState(userName || 'Student');
+                      ^^^^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:59:10: Error: Undefined name 'currentName'.
+  const [currentName, setCurrentName] = useState(userName || 'Student');
+         ^^^^^^^^^^^
+lib/screens/dashboard_screen.dart:59:39: Error: Can't assign to this.
+  const [currentName, setCurrentName] = useState(userName || 'Student');
+                                      ^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildRelease'.
+> Process 'command '/opt/hostedtoolcache/flutter/stable-3.24.4-x64/flutter/bin/flutter'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 17s
+Running Gradle task 'assembleRelease'...                          137.7s
+Gradle task assembleRelease failed with exit code 1
+Error: Process completed with exit code 1.

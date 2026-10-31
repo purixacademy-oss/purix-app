@@ -48,10 +48,9 @@ export class SessionSecurity {
             return false;
           }
 
-          // 2. Update local plan and status
-          if (planStatus) {
-            localStorage.setItem('user_sub', planStatus);
-          }
+          // 2. Update local plan and status (Only 'PRO' in Google Sheet grants PRO status)
+          const isUserPro = planStatus === 'PRO';
+          localStorage.setItem('user_sub', isUserPro ? 'PRO' : 'FREE');
           localStorage.setItem('user_status', accountStatus);
           localStorage.setItem(lastVerifyKey, new Date().toISOString());
           break;

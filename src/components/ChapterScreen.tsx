@@ -10,9 +10,10 @@ import {
   FileText, 
   BookOpen, 
   Loader2, 
-  Zap, 
   Globe2,
-  FolderX
+  FolderX,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 
 interface ChapterScreenProps {
@@ -45,12 +46,34 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
   const [groupedChapters, setGroupedChapters] = useState<Record<string, SheetRow[]>>({});
   const [completedQuizSets, setCompletedQuizSets] = useState<Set<string>>(new Set());
 
+  // Helper to determine if a row or test is explicitly marked FREE in Google Sheet
+  const isRowMarkedFree = (row?: SheetRow): boolean => {
+    if (!row) return false;
+    const val = String(
+      row['Access Type'] || 
+      row['access_type'] || 
+      row['Access'] || 
+      row['access'] || 
+      row['Is-free'] || 
+      row['is_free'] || 
+      row['Is_free'] || 
+      row['Type'] || 
+      row['type'] || 
+      row['Plan'] || 
+      ''
+    ).trim().toUpperCase();
+    return val === 'FREE' || val === 'YES' || val === 'TRUE';
+  };
+
+  // Enrolled Classroom Student check
+  const isEnrolledStudent = userSubscription.trim().toUpperCase() === 'PRO' || userSubscription.trim().toUpperCase() === 'VERIFIED';
+
   const loadChaptersAndUserStatus = async () => {
     setIsLoading(true);
 
     // 1. Check local status & completed quizzes
-    const sub = localStorage.getItem('user_sub') || 'FREE';
-    setUserSubscription(sub);
+    const sub = (localStorage.getItem('user_sub') || 'FREE').trim().toUpperCase();
+    setUserSubscription(sub === 'PRO' || sub === 'VERIFIED' ? 'PRO' : 'FREE');
 
     const completed = new Set<string>();
     for (let i = 0; i < localStorage.length; i++) {
@@ -165,14 +188,26 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
           </div>
         </div>
 
-        {/* Language Toggle Chip */}
-        <button
-          onClick={() => setIsHindiLanguage(!isHindiLanguage)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-mono font-bold tracking-wider hover:bg-[#00F0FF]/25 transition-all cursor-pointer"
-        >
-          <Globe2 className="w-3.5 h-3.5" />
-          <span>{isHindiLanguage ? "HIN 🇮🇳" : "ENG 🌐"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Enrollment Status Pill (Appstore policy compliant wording) */}
+          <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
+            isEnrolledStudent 
+              ? 'bg-[#00FF88]/15 border-[#00FF88]/40 text-[#00FF88]' 
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}>
+            {isEnrolledStudent ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+            <span>{isEnrolledStudent ? 'ENROLLED CADET' : 'STANDARD ACCESS'}</span>
+          </div>
+
+          {/* Language Toggle Chip */}
+          <button
+            onClick={() => setIsHindiLanguage(!isHindiLanguage)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-mono font-bold tracking-wider hover:bg-[#00F0FF]/25 transition-all cursor-pointer"
+          >
+            <Globe2 className="w-3.5 h-3.5" />
+            <span>{isHindiLanguage ? "HIN 🇮🇳" : "ENG 🌐"}</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Chapters View */}
@@ -198,14 +233,11 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
           <div className="space-y-3.5">
             {chapterNames.map((chapterName) => {
               const chapterItems = groupedChapters[chapterName] || [];
-              const firstItem = chapterItems[0] || {};
+              const firstItem = chapterItems[0];
 
-              const accessType = String(
-                firstItem['Access Type'] || firstItem['Is-free'] || firstItem['is_free'] || 'PAID'
-              ).trim().toUpperCase();
-
-              const isFreeContent = accessType === 'FREE';
-              const hasAccess = isFreeContent || userSubscription.toUpperCase() === 'PRO' || userSubscription.toUpperCase() === 'ACTIVE';
+              // Check if any question in the chapter is marked free in the sheet
+              const isChapterAnyFree = chapterItems.some(isRowMarkedFree);
+              const chapterHasAccess = isChapterAnyFree || isEnrolledStudent;
 
               const totalQuestions = chapterItems.length;
               const totalSets = Math.max(1, Math.ceil(totalQuestions / 20));
@@ -215,7 +247,7 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                 <div
                   key={chapterName}
                   className={`bg-[#0B111E] rounded-2xl border transition-all overflow-hidden ${
-                    hasAccess ? 'border-white/12' : 'border-red-500/30'
+                    chapterHasAccess ? 'border-white/12' : 'border-amber-500/30'
                   }`}
                 >
                   {/* Chapter Accordion Header */}
@@ -225,16 +257,33 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-1">
-                        {hasAccess ? (
+                        {chapterHasAccess ? (
                           <CheckCircle className="w-5 h-5 text-[#00F0FF]" />
                         ) : (
-                          <Lock className="w-5 h-5 text-red-400" />
+                          <Lock className="w-5 h-5 text-amber-400" />
                         )}
                       </div>
                       <div>
-                        <h3 className={`text-sm font-bold tracking-wide ${hasAccess ? 'text-white' : 'text-white/70'}`}>
-                          {chapterName}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`text-sm font-bold tracking-wide ${chapterHasAccess ? 'text-white' : 'text-white/80'}`}>
+                            {chapterName}
+                          </h3>
+                          {/* Access Badge strictly from Google Sheet and Enrollment status */}
+                          {isEnrolledStudent ? (
+                            <span className="text-[9px] font-mono font-bold text-[#FFD700] bg-[#FFD700]/15 border border-[#FFD700]/30 px-1.5 py-0.5 rounded">
+                              ENROLLED
+                            </span>
+                          ) : isChapterAnyFree ? (
+                            <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/15 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                              DEMO
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" />
+                              CLASSROOM ONLY
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] font-mono text-[#00F0FF]/70 mt-0.5">
                           {mode === 'mcq'
                             ? `${totalQuestions} Questions • ${totalSets} Sets`
@@ -263,6 +312,11 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                           const setKey = `quiz_${className}_${subjectName}_${chapterName}_set_${setNumber}_completed`;
                           const isCompleted = completedQuizSets.has(setKey);
 
+                          // Strict Access: Only if this set is marked FREE in the sheet OR student is enrolled
+                          const setSlice = chapterItems.slice(setIdx * 20, (setIdx + 1) * 20);
+                          const isSetFreeInSheet = setSlice.some(isRowMarkedFree) || isRowMarkedFree(firstItem);
+                          const hasSetAccess = isSetFreeInSheet || isEnrolledStudent;
+
                           return (
                             <div
                               key={setNumber}
@@ -273,6 +327,23 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                                   <span className="text-xs font-bold font-mono text-white">
                                     SET 0{setNumber}
                                   </span>
+
+                                  {/* Badges: Clean and policy compliant */}
+                                  {isSetFreeInSheet ? (
+                                    <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                                      DEMO
+                                    </span>
+                                  ) : isEnrolledStudent ? (
+                                    <span className="text-[9px] font-mono font-bold text-[#FFD700] bg-[#FFD700]/10 border border-[#FFD700]/30 px-1.5 py-0.5 rounded">
+                                      UNLOCKED
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Lock className="w-2.5 h-2.5" />
+                                      CLASSROOM ONLY
+                                    </span>
+                                  )}
+
                                   {isCompleted && (
                                     <span className="flex items-center gap-1 font-mono text-[9px] font-bold text-[#00FF66] bg-[#00FF66]/10 border border-[#00FF66]/30 px-1.5 py-0.5 rounded">
                                       <CheckCircle className="w-3 h-3" />
@@ -286,14 +357,15 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                               </div>
 
                               <button
-                                onClick={() => handleQuizClick(chapterName, setNumber, hasAccess)}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-mono font-bold tracking-wider transition-all cursor-pointer ${
-                                  hasAccess
+                                onClick={() => handleQuizClick(chapterName, setNumber, hasSetAccess)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-mono font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                                  hasSetAccess
                                     ? 'bg-[#00FF66] hover:bg-[#00e65c] text-black shadow-[0_2px_8px_rgba(0,255,102,0.3)]'
-                                    : 'bg-zinc-800 text-white/40 border border-white/10'
+                                    : 'bg-zinc-800 text-white/40 border border-white/10 hover:border-amber-500/40 hover:text-amber-300'
                                 }`}
                               >
-                                {hasAccess ? (isCompleted ? 'RETRY' : 'START') : 'LOCKED'}
+                                {!hasSetAccess && <Lock className="w-3 h-3" />}
+                                <span>{hasSetAccess ? (isCompleted ? 'RETRY' : 'START') : 'LOCKED'}</span>
                               </button>
                             </div>
                           );
@@ -301,6 +373,9 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                       ) : (
                         // Notes & Practice Sets: PDF Documents
                         chapterItems.map((item, itemIdx) => {
+                          const isPdfFree = isRowMarkedFree(item) || isRowMarkedFree(firstItem);
+                          const hasPdfAccess = isPdfFree || isEnrolledStudent;
+
                           const pdfLinkHin = String(item['Drive-link-hin'] || item['Drive_link_hin'] || '');
                           const pdfLinkEng = String(item['Drive-link-eng'] || item['Drive_link_eng'] || '');
                           const selectedLink = isHindiLanguage
@@ -321,8 +396,20 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                                   <FileText className="w-4 h-4 text-[#FF9900]" />
                                 )}
                                 <div>
-                                  <div className="text-xs font-semibold text-white">
-                                    {partName}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-white">
+                                      {partName}
+                                    </span>
+                                    {isPdfFree ? (
+                                      <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                                        DEMO
+                                      </span>
+                                    ) : !isEnrolledStudent && (
+                                      <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <Lock className="w-2.5 h-2.5" />
+                                        CLASSROOM ONLY
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[10px] font-mono text-white/50">
                                     {isHindiLanguage ? 'Hindi Version' : 'English Version'}
@@ -331,15 +418,15 @@ export const ChapterScreen: React.FC<ChapterScreenProps> = ({
                               </div>
 
                               <button
-                                onClick={() => handlePdfClick(selectedLink, `${chapterName} - ${partName}`, hasAccess)}
+                                onClick={() => handlePdfClick(selectedLink, `${chapterName} - ${partName}`, hasPdfAccess)}
                                 className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                                  hasAccess
+                                  hasPdfAccess
                                     ? 'bg-[#00F0FF]/15 hover:bg-[#00F0FF]/30 text-[#00F0FF]'
                                     : 'bg-red-950/40 text-red-400 border border-red-500/30'
                                 }`}
-                                title={hasAccess ? 'Open PDF' : 'Locked PRO Content'}
+                                title={hasPdfAccess ? 'Open PDF' : 'Locked Classroom Material'}
                               >
-                                {hasAccess ? (
+                                {hasPdfAccess ? (
                                   <FileText className="w-4 h-4" />
                                 ) : (
                                   <Lock className="w-4 h-4" />

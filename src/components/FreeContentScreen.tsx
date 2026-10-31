@@ -108,7 +108,7 @@ export const FreeContentScreen: React.FC<FreeContentScreenProps> = ({
                         {chapterName}
                       </h3>
                       <div className="text-[11px] font-mono text-[#00F0FF]/80 mt-0.5">
-                        Subject: {subjectName} (FREE ACCESS)
+                        Subject: {subjectName} (DEMO)
                       </div>
                     </div>
                   </div>

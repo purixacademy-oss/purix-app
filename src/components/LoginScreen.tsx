@@ -10,6 +10,7 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Form fields
   const [cadetName, setCadetName] = useState('Cadet Student');
@@ -46,29 +47,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
     setShowVerificationModal(false);
 
     try {
-      // 1. Fetch User ID sheet to check existing user & status
-      const usersData = await SheetService.fetchSheetData('User ID', true);
+      // 1. Fetch User ID sheet to check existing user & status (always fresh query)
+      const userRow = await SheetService.fetchUserByPhone(cleanMobile);
       
       let isOldUser = false;
       let finalPurixId = '';
       let accountStatus = 'ACTIVE';
       let planStatus = 'FREE';
 
-      for (const row of usersData) {
-        const sheetPhone = String(row['Phone'] || row['phone'] || '').trim();
-        if (sheetPhone === cleanMobile) {
-          isOldUser = true;
-          finalPurixId = String(row['Unique ID'] || row['Unique ID '] || '').trim();
-          planStatus = String(row['Plan'] || 'FREE').trim().toUpperCase();
-          accountStatus = String(row['Status'] || 'ACTIVE').trim().toUpperCase();
-          break;
-        }
+      if (userRow) {
+        isOldUser = true;
+        finalPurixId = String(userRow['Unique ID'] || userRow['UniqueID'] || userRow['Unique ID '] || '').trim();
+        const rawPlan = String(
+          userRow['Plan'] || userRow['plan'] || userRow['PLAN'] || 
+          userRow['Subscription'] || userRow['subscription'] || 'FREE'
+        ).trim().toUpperCase();
+        
+        // Strict check: 'PRO' or 'VERIFIED' in Google Sheet grants verified classroom enrollment
+        planStatus = (rawPlan === 'PRO' || rawPlan === 'VERIFIED') ? 'PRO' : 'FREE';
+        accountStatus = String(userRow['Status'] || userRow['status'] || 'ACTIVE').trim().toUpperCase();
       }
 
-      // Security block: If deactivated by admin
+      // Security block: If deactivated by admin in Google Sheet
       if (isOldUser && (accountStatus === 'DEACTIVE' || accountStatus === 'BANNED' || accountStatus === 'BLOCKED')) {
         setIsLoading(false);
-        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy support.", 'error');
+        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy center administration.", 'error');
         return;
       }
 
@@ -84,22 +87,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
         email: cadetEmail.trim(),
         selectedClass: '',
         purixId: finalPurixId,
+        force: true,
       });
 
       if (syncResult.status === 'DEACTIVE') {
         setIsLoading(false);
-        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy support.", 'error');
+        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy center administration.", 'error');
         return;
       }
 
-      const activePlan = syncResult.plan || planStatus || 'FREE';
+      const syncPlan = (syncResult.plan || '').trim().toUpperCase();
+      const finalPlan = (syncPlan === 'PRO' || syncPlan === 'VERIFIED') ? 'PRO' : (planStatus === 'PRO' ? 'PRO' : 'FREE');
 
       // 3. Save to localStorage
       localStorage.setItem('user_name', cadetName.trim());
       localStorage.setItem('user_email', cadetEmail.trim());
       localStorage.setItem('user_phone', cleanMobile);
       localStorage.setItem('user_uid', finalPurixId);
-      localStorage.setItem('user_sub', activePlan);
+      localStorage.setItem('user_sub', finalPlan);
+      localStorage.setItem('user_status', syncResult.status || accountStatus);
       localStorage.setItem('is_logged_in', 'true');
 
       setIsLoading(false);
@@ -127,23 +133,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
         </div>
       ) : (
         <div className="w-full max-w-md mx-auto flex flex-col items-center text-center z-10 py-10">
-          {/* Logo with gold glowing aura */}
+          {/* Logo with gold glowing aura - Works in web, APK and fallback */}
           <div className="relative mb-6">
-            <div className="w-32 h-32 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-tr from-[#D4AF37] via-[#FFD700] to-[#00F0FF] shadow-[0_0_35px_rgba(212,175,55,0.45)] flex items-center justify-center">
-              <img
-                src="/logo.png"
-                alt="Purix Academy Logo"
-                className="w-full h-full object-cover rounded-full bg-[#070B14]"
-                onError={(e) => {
-                  // Fallback if image asset fails
-                  const target = e.currentTarget;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<div class="text-3xl font-black text-[#D4AF37]">PA</div>';
-                  }
-                }}
-              />
+            <div className="w-28 h-28 md:w-32 md:h-32 rounded-full p-1 bg-gradient-to-tr from-[#D4AF37] via-[#FFD700] to-[#00F0FF] shadow-[0_0_35px_rgba(212,175,55,0.45)] flex items-center justify-center overflow-hidden bg-[#070B14]">
+              {!imageError ? (
+                <img
+                  src="logo.png"
+                  alt="Purix Academy Logo"
+                  className="w-full h-full object-cover rounded-full"
+                  onError={() => {
+                    const img = document.querySelector('#purix-logo-img') as HTMLImageElement;
+                    if (img && !img.src.includes('/logo.png')) {
+                      img.src = '/logo.png';
+                    } else {
+                      setImageError(true);
+                    }
+                  }}
+                  id="purix-logo-img"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-[#0E1626] flex flex-col items-center justify-center text-[#D4AF37] border border-[#D4AF37]/40 shadow-inner">
+                  <span className="text-3xl font-black font-mono tracking-tighter">PA</span>
+                  <span className="text-[8px] font-mono tracking-widest text-[#00F0FF]">PURIX</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -154,17 +167,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
             NEW WAY OF LEARNING
           </div>
           <p className="text-xs text-white/60 font-mono max-w-xs mb-10 leading-relaxed">
-            Access high-yield board question banks, simulations & notes
+            High-yield board question banks, simulations & classroom notes
           </p>
 
-          {/* Continue with Google button */}
+          {/* Continue with Google button with Official Multi-Color Google "G" SVG Logo */}
           <button
             onClick={handleStartGoogleSignIn}
-            className="w-full max-w-[340px] h-[52px] bg-white hover:bg-slate-100 text-[#1F1F1F] font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-[0_4px_20px_rgba(255,255,255,0.1)] mb-6 cursor-pointer"
+            className="w-full max-w-[340px] h-[52px] bg-white hover:bg-slate-100 text-[#1F1F1F] font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-[0_4px_20px_rgba(255,255,255,0.15)] mb-6 cursor-pointer"
           >
-            <div className="w-6 h-6 flex items-center justify-center font-black text-[#4285F4] text-xl">
-              G
-            </div>
+            {/* Official 4-Color Google "G" Logo */}
+            <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
             <span className="text-[15px] tracking-wide font-semibold text-[#1F1F1F]">
               Continue with Google
             </span>
@@ -173,7 +202,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
           {/* Security badge */}
           <div className="flex items-center gap-2 text-white/40 font-mono text-[10px] tracking-widest uppercase">
             <Shield className="w-3.5 h-3.5 text-[#00F0FF]/70" />
-            <span>SECURE BOARD LEARNING PORTAL</span>
+            <span>SECURE ACADEMY PORTAL</span>
           </div>
         </div>
       )}
@@ -185,12 +214,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-[#00F0FF]" />
               <div className="text-xs font-mono font-bold tracking-widest text-[#00F0FF]">
-                // VERIFICATION REQUIRED
+                // PURIX CADET REGISTRATION
               </div>
             </div>
 
-            <p className="text-xs text-white/70 mb-5 leading-relaxed">
-              Welcome to Purix Academy! Complete your cadet verification with your WhatsApp number to secure your unique Purix ID.
+            <p className="text-xs text-white/70 mb-5 leading-relaxed font-mono">
+              Welcome Cadet! Link your 10-digit WhatsApp number to verify your institute enrollment status & unique Purix ID.
             </p>
 
             <form onSubmit={handleVerifyAndEnter} className="space-y-4">
@@ -245,7 +274,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShow
                   />
                 </div>
                 <div className="text-[10px] text-white/40 font-mono mt-1">
-                  Used for account security & PRO pass activation verification
+                  Links to institute admission & classroom batch verification
                 </div>
               </div>
 
