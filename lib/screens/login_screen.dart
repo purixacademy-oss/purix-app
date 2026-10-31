@@ -1,317 +1,309 @@
-import 'dart:math';
-import 'dart:io';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import '../services/sheet_service.dart';
-import 'board_screen.dart';
+import React, { useState } from 'react';
+import { SheetService } from '../services/sheetService';
+import { Shield, Smartphone, Mail, User, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
+interface LoginScreenProps {
+  onLoginSuccess: (userName: string) => void;
+  onShowMessage: (msg: string, type?: 'info' | 'error' | 'success') => void;
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  bool _isLoading = false;
-  final TextEditingController _mobileController = TextEditingController();
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowMessage }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
-  // 👇 Apni logo file ka path yahan likho (pubspec.yaml me bhi add karna zaroori hai)
-  static const String _logoPath = 'assets/images/logo.png';
+  // Form fields
+  const [cadetName, setCadetName] = useState('Cadet Student');
+  const [cadetEmail, setCadetEmail] = useState('student@purix.academy');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [inputError, setInputError] = useState('');
 
-  String get scriptUrl => SheetService.studentDataUrl;
+  const handleStartGoogleSignIn = () => {
+    setShowVerificationModal(true);
+  };
 
-  Future<String> _getDeviceInfo() async {
-    try {
-      return "${Platform.operatingSystem.toUpperCase()} Device";
-    } catch (e) {
-      return "Android Mobile";
+  const handleVerifyAndEnter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInputError('');
+
+    const cleanMobile = mobileNumber.replace(/\D/g, '');
+    if (cleanMobile.length !== 10) {
+      setInputError('Please enter a valid 10-digit WhatsApp number');
+      return;
     }
-  }
 
-  Future<void> _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
-    try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email']);
-      final GoogleSignInAccount? account = await googleSignIn.signIn();
-
-      if (account != null) {
-        setState(() => _isLoading = false);
-        _showMobileNumberPopup(account.displayName ?? 'Student', account.email);
-      } else {
-        setState(() => _isLoading = false);
-      }
-    } catch (error) {
-      setState(() => _isLoading = false);
-      _showErrorSnackBar("Google Sign-In error: $error");
+    if (!cadetName.trim() || cadetName.trim().toLowerCase() === 'student') {
+      setInputError('Please enter your full Cadet Name');
+      return;
     }
-  }
 
-  void _showMobileNumberPopup(String name, String email) {
-    const neonCyan = Color(0xFF00F0FF);
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0B111E),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16), side: const BorderSide(color: neonCyan)),
-          title: const Text('PURIX CADET REGISTRATION',
-              style: TextStyle(color: neonCyan, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Welcome Cadet, $name!',
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              const Text('Enter 10-digit WhatsApp number to link your progress report.',
-                  style: TextStyle(color: Colors.white70, fontSize: 11)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _mobileController,
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                style: const TextStyle(color: Colors.white, letterSpacing: 2),
-                decoration: InputDecoration(
-                  counterText: "",
-                  prefixText: "+91 ",
-                  prefixStyle: const TextStyle(color: neonCyan, fontWeight: FontWeight.bold),
-                  hintText: "9876543210",
-                  hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 0),
-                  filled: true,
-                  fillColor: const Color(0xFF040814),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
-                  focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: neonCyan)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: neonCyan.withOpacity(0.2),
-                  foregroundColor: neonCyan,
-                  side: const BorderSide(color: neonCyan)),
-              onPressed: () {
-                if (_mobileController.text.length == 10) {
-                  Navigator.pop(context);
-                  _processUserAndLogin(name, email, _mobileController.text);
-                } else {
-                  _showErrorSnackBar("Please enter a valid 10-digit number");
-                }
-              },
-              child: const Text('VERIFY & ENTER', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+    if (!cadetEmail.trim() || !cadetEmail.includes('@')) {
+      setInputError('Please enter a valid email address');
+      return;
+    }
 
-  Future<void> _processUserAndLogin(String name, String email, String mobile) async {
-    setState(() => _isLoading = true);
+    setIsLoading(true);
+    setShowVerificationModal(false);
 
     try {
-      final String currentDevice = await _getDeviceInfo();
-      final String currentDateTime = DateTime.now().toString().substring(0, 16);
+      // 1. Fetch User ID sheet to check existing user & status (always fresh query)
+      const userRow = await SheetService.fetchUserByPhone(cleanMobile);
+      
+      let isOldUser = false;
+      let finalPurixId = '';
+      let accountStatus = 'ACTIVE';
+      let planStatus = 'FREE';
 
-      // 🔒 Sirf is phone ki row (poori user list nahi), hamesha fresh
-      final userRow = await SheetService.fetchUserByPhone(mobile);
-
-      final bool isOldUser = userRow != null;
-      String finalPurixId = '';
-      String accountStatus = 'ACTIVE';
-      String planStatus = 'FREE';
-
-      if (userRow != null) {
-        finalPurixId = (userRow['UniqueID'] ?? '').toString().trim();
-        planStatus = (userRow['Plan'] ?? 'FREE').toString().trim().toUpperCase();
-        accountStatus = (userRow['Status'] ?? 'ACTIVE').toString().trim().toUpperCase();
+      if (userRow) {
+        isOldUser = true;
+        finalPurixId = String(userRow['Unique ID'] || userRow['UniqueID'] || userRow['Unique ID '] || '').trim();
+        const rawPlan = String(
+          userRow['Plan'] || userRow['plan'] || userRow['PLAN'] || 
+          userRow['Subscription'] || userRow['subscription'] || 'FREE'
+        ).trim().toUpperCase();
+        
+        // Strict check: 'PRO' or 'VERIFIED' in Google Sheet grants verified classroom enrollment
+        planStatus = (rawPlan === 'PRO' || rawPlan === 'VERIFIED') ? 'PRO' : 'FREE';
+        accountStatus = String(userRow['Status'] || userRow['status'] || 'ACTIVE').trim().toUpperCase();
       }
 
-      if (isOldUser && (accountStatus == 'DEACTIVE' || accountStatus == 'BANNED')) {
-        setState(() => _isLoading = false);
-        GoogleSignIn().signOut();
-        _showErrorSnackBar("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy support.");
+      // Security block: If deactivated by admin in Google Sheet
+      if (isOldUser && (accountStatus === 'DEACTIVE' || accountStatus === 'BANNED' || accountStatus === 'BLOCKED')) {
+        setIsLoading(false);
+        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy center administration.", 'error');
         return;
       }
 
-      // Purana user hai par sheet me Unique ID khali ho to bhi naya bana lo
-      if (finalPurixId.isEmpty) {
-        finalPurixId = _generatePurixId();
+      // Generate new Purix ID if not existing
+      if (!isOldUser || !finalPurixId) {
+        finalPurixId = SheetService.generatePurixId();
       }
 
-      final response = await http.post(
-        Uri.parse(scriptUrl),
-        body: json.encode({
-          "name": name,
-          "phone": mobile,
-          "email": email,
-          "purix_id": finalPurixId,
-          "selected_class": "",
-          "device_info": currentDevice,
-          "login_time": currentDateTime
-        }),
-        headers: {"Content-Type": "application/json"},
-      );
+      // 2. Sync to Google Apps Script
+      const syncResult = await SheetService.syncUserProfile({
+        name: cadetName.trim(),
+        phone: cleanMobile,
+        email: cadetEmail.trim(),
+        selectedClass: '',
+        purixId: finalPurixId,
+        force: true,
+      });
 
-      if (response.statusCode == 200 || response.statusCode == 302) {
-        try {
-          var responseData = json.decode(response.body);
-          if (responseData['subscription'] != null) {
-            planStatus = responseData['subscription'];
-          }
-        } catch (e) {}
+      if (syncResult.status === 'DEACTIVE') {
+        setIsLoading(false);
+        onShowMessage("🔒 ACCOUNT SUSPENDED: Please contact Purix Academy center administration.", 'error');
+        return;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_name', name);
-      await prefs.setString('user_email', email);
-      await prefs.setString('user_phone', mobile);
-      await prefs.setString('user_uid', finalPurixId);
-      await prefs.setString('user_sub', planStatus);
-      await prefs.setBool('is_logged_in', true);
+      const syncPlan = (syncResult.plan || '').trim().toUpperCase();
+      const finalPlan = (syncPlan === 'PRO' || syncPlan === 'VERIFIED') ? 'PRO' : (planStatus === 'PRO' ? 'PRO' : 'FREE');
 
-      if (!mounted) return;
+      // 3. Save to localStorage
+      localStorage.setItem('user_name', cadetName.trim());
+      localStorage.setItem('user_email', cadetEmail.trim());
+      localStorage.setItem('user_phone', cleanMobile);
+      localStorage.setItem('user_uid', finalPurixId);
+      localStorage.setItem('user_sub', finalPlan);
+      localStorage.setItem('user_status', syncResult.status || accountStatus);
+      localStorage.setItem('is_logged_in', 'true');
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => BoardScreen(userName: name)),
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorSnackBar("Network matrix error. Please try again.");
+      setIsLoading(false);
+      onLoginSuccess(cadetName.trim());
+    } catch (err) {
+      console.error("Login verification error:", err);
+      setIsLoading(false);
+      onShowMessage("Network matrix error. Please try again.", 'error');
     }
-  }
+  };
 
-  String _generatePurixId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    Random rnd = Random();
-    String randomStr =
-        String.fromCharCodes(Iterable.generate(5, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
-    return 'PRX-$randomStr';
-  }
+  return (
+    <div className="min-h-screen bg-[#070B14] flex flex-col justify-center items-center px-4 relative overflow-hidden">
+      {/* Sci-fi Cyber Background Ambient Glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#D4AF37]/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-80 h-80 bg-[#00F0FF]/10 rounded-full blur-[100px] pointer-events-none" />
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
-  }
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center space-y-4 z-10">
+          <Loader2 className="w-10 h-10 text-[#00F0FF] animate-spin" />
+          <div className="text-center font-mono text-xs tracking-[0.2em] text-[#00F0FF] animate-pulse">
+            SYNCING SECURE MATRIX...
+          </div>
+          <div className="text-xs text-slate-400 font-mono">Connecting to Purix Academy Nodes</div>
+        </div>
+      ) : (
+        <div className="w-full max-w-md mx-auto flex flex-col items-center text-center z-10 py-10">
+          {/* Logo with gold glowing aura - Works in web, APK and fallback */}
+          <div className="relative mb-6">
+            <div className="w-28 h-28 md:w-32 md:h-32 rounded-full p-1 bg-gradient-to-tr from-[#D4AF37] via-[#FFD700] to-[#00F0FF] shadow-[0_0_35px_rgba(212,175,55,0.45)] flex items-center justify-center overflow-hidden bg-[#070B14]">
+              {!imageError ? (
+                <img
+                  src="logo.png"
+                  alt="Purix Academy Logo"
+                  className="w-full h-full object-cover rounded-full"
+                  onError={() => {
+                    const img = document.querySelector('#purix-logo-img') as HTMLImageElement;
+                    if (img && !img.src.includes('/logo.png')) {
+                      img.src = '/logo.png';
+                    } else {
+                      setImageError(true);
+                    }
+                  }}
+                  id="purix-logo-img"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-[#0E1626] flex flex-col items-center justify-center text-[#D4AF37] border border-[#D4AF37]/40 shadow-inner">
+                  <span className="text-3xl font-black font-mono tracking-tighter">PA</span>
+                  <span className="text-[8px] font-mono tracking-widest text-[#00F0FF]">PURIX</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-  @override
-  Widget build(BuildContext context) {
-    const darkVoid = Color(0xFF070B14);
-    const goldAccent = Color(0xFFD4AF37);
-    const neonCyan = Color(0xFF00F0FF);
+          <h1 className="text-2xl md:text-3xl font-black text-[#D4AF37] tracking-[0.15em] mb-2 drop-shadow-[0_2px_10px_rgba(212,175,55,0.3)]">
+            PURIX ACADEMY
+          </h1>
+          <div className="text-xs font-mono font-bold tracking-[0.18em] text-white/90 mb-3 uppercase">
+            NEW WAY OF LEARNING
+          </div>
+          <p className="text-xs text-white/60 font-mono max-w-xs mb-10 leading-relaxed">
+            High-yield board question banks, simulations & classroom notes
+          </p>
 
-    return Scaffold(
-      backgroundColor: darkVoid,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              // ================= LOGO =================
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: neonCyan, width: 2),
-                    boxShadow: [
-                      BoxShadow(color: neonCyan.withOpacity(0.3), blurRadius: 20, spreadRadius: 2),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      _logoPath,
-                      fit: BoxFit.cover,
-                      // Logo file na mile to purana "P" dikhega
-                      errorBuilder: (context, error, stack) => const Center(
-                        child: Text(
-                          'P',
-                          style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w900,
-                              color: goldAccent,
-                              fontFamily: 'monospace'),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Center(
-                child: Text(
-                  'PURIX ACADEMY',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.white),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'NEW WAY OF LEARNING',
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                      color: neonCyan.withOpacity(0.8),
-                      fontFamily: 'monospace'),
-                ),
-              ),
-              const Spacer(),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(neonCyan)))
-              else
-                ElevatedButton(
-                  onPressed: _handleGoogleSignIn,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0E1626),
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: neonCyan, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 8,
-                    shadowColor: neonCyan.withOpacity(0.4),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.g_mobiledata_rounded, size: 28, color: neonCyan),
-                      SizedBox(width: 8),
-                      Text('SIGN IN WITH GOOGLE',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 32),
-              Center(
-                child: Text(
-                  'SECURE GATEWAY • DEDICATED BOARD ACCESS',
-                  style: TextStyle(
-                      fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1.5, fontFamily: 'monospace'),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+          {/* Continue with Google button with Official Multi-Color Google "G" SVG Logo */}
+          <button
+            onClick={handleStartGoogleSignIn}
+            className="w-full max-w-[340px] h-[52px] bg-white hover:bg-slate-100 text-[#1F1F1F] font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-[0_4px_20px_rgba(255,255,255,0.15)] mb-6 cursor-pointer"
+          >
+            {/* Official 4-Color Google "G" Logo */}
+            <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            <span className="text-[15px] tracking-wide font-semibold text-[#1F1F1F]">
+              Continue with Google
+            </span>
+          </button>
+
+          {/* Security badge */}
+          <div className="flex items-center gap-2 text-white/40 font-mono text-[10px] tracking-widest uppercase">
+            <Shield className="w-3.5 h-3.5 text-[#00F0FF]/70" />
+            <span>SECURE ACADEMY PORTAL</span>
+          </div>
+        </div>
+      )}
+
+      {/* Verification / Profile Dialog Modal */}
+      {showVerificationModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#0B111E] border border-[#00F0FF] rounded-2xl p-6 shadow-[0_0_30px_rgba(0,240,255,0.2)]">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-[#00F0FF]" />
+              <div className="text-xs font-mono font-bold tracking-widest text-[#00F0FF]">
+                // PURIX CADET REGISTRATION
+              </div>
+            </div>
+
+            <p className="text-xs text-white/70 mb-5 leading-relaxed font-mono">
+              Welcome Cadet! Link your 10-digit WhatsApp number to verify your institute enrollment status & unique Purix ID.
+            </p>
+
+            <form onSubmit={handleVerifyAndEnter} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-mono text-white/60 mb-1">
+                  Cadet Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 w-4 h-4 text-[#00F0FF]/80" />
+                  <input
+                    type="text"
+                    value={cadetName}
+                    onChange={(e) => setCadetName(e.target.value)}
+                    required
+                    placeholder="Enter your full name"
+                    className="w-full bg-[#070B14] border border-white/15 focus:border-[#00F0FF] rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-white/60 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 w-4 h-4 text-[#00F0FF]/80" />
+                  <input
+                    type="email"
+                    value={cadetEmail}
+                    onChange={(e) => setCadetEmail(e.target.value)}
+                    required
+                    placeholder="cadet@example.com"
+                    className="w-full bg-[#070B14] border border-white/15 focus:border-[#00F0FF] rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-white/60 mb-1">
+                  WhatsApp / Mobile Number (10 Digits)
+                </label>
+                <div className="relative">
+                  <Smartphone className="absolute left-3 top-3 w-4 h-4 text-[#00F0FF]/80" />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                    required
+                    placeholder="9876543210"
+                    className="w-full bg-[#070B14] border border-white/15 focus:border-[#00F0FF] rounded-xl py-2.5 pl-10 pr-3 text-sm font-mono tracking-widest text-white focus:outline-none transition-colors"
+                  />
+                </div>
+                <div className="text-[10px] text-white/40 font-mono mt-1">
+                  Links to institute admission & classroom batch verification
+                </div>
+              </div>
+
+              {inputError && (
+                <div className="flex items-center gap-2 p-2.5 bg-red-950/40 border border-red-500/40 rounded-lg text-xs text-red-300">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+                  <span>{inputError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationModal(false)}
+                  className="px-4 py-2 text-xs font-mono text-white/60 hover:text-white transition-colors"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#00F0FF]/20 hover:bg-[#00F0FF]/30 border border-[#00F0FF] text-[#00F0FF] font-bold text-xs font-mono tracking-wider rounded-xl transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                >
+                  <span>VERIFY & ENTER</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

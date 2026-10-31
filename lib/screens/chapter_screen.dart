@@ -1,413 +1,449 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../services/sheet_service.dart';
-import 'quiz_screen.dart';
-import 'pdf_viewer_screen.dart';
+import React, { useState, useEffect } from 'react';
+import { SheetService } from '../services/sheetService';
+import { StudyMode, SheetRow } from '../types';
+import { 
+  ArrowLeft, 
+  CheckCircle, 
+  Lock, 
+  ChevronDown, 
+  ChevronUp, 
+  FileText, 
+  BookOpen, 
+  Loader2, 
+  Globe2,
+  FolderX,
+  ShieldCheck,
+  ShieldAlert
+} from 'lucide-react';
 
-class ChapterScreen extends StatefulWidget {
-  final String className;
-  final String subjectName;
-  final String subSubjectName;
-  final String mode;
-
-  const ChapterScreen({
-    super.key,
-    required this.className,
-    required this.subjectName,
-    required this.subSubjectName,
-    required this.mode,
-  });
-
-  @override
-  State<ChapterScreen> createState() => _ChapterScreenState();
+interface ChapterScreenProps {
+  className: string;
+  subjectName: string;
+  subSubjectName: string;
+  mode: StudyMode;
+  onStartQuiz: (chapterName: string, setNumber: number) => void;
+  onOpenPdf: (pdfUrl: string, title: string) => void;
+  onBack: () => void;
+  onUpgradePrompt: () => void;
 }
 
-class _ChapterScreenState extends State<ChapterScreen> {
-  bool _isLoading = true;
-  String _userSubscription = 'FREE';
+export const ChapterScreen: React.FC<ChapterScreenProps> = ({
+  className,
+  subjectName,
+  subSubjectName,
+  mode,
+  onStartQuiz,
+  onOpenPdf,
+  onBack,
+  onUpgradePrompt,
+}) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHindiLanguage, setIsHindiLanguage] = useState(false);
+  const [userSubscription, setUserSubscription] = useState('FREE');
+  const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
-  List<String> _chapterNames = [];
-  Map<String, List<Map<String, dynamic>>> _groupedChapters = {};
-  Set<String> _completedQuizSets = {};
+  const [chapterNames, setChapterNames] = useState<string[]>([]);
+  const [groupedChapters, setGroupedChapters] = useState<Record<string, SheetRow[]>>({});
+  const [completedQuizSets, setCompletedQuizSets] = useState<Set<string>>(new Set());
 
-  @override
-  void initState() {
-    super.initState();
-    _loadChaptersAndUserStatus();
-  }
+  // Helper to determine if a row or test is explicitly marked FREE in Google Sheet
+  const isRowMarkedFree = (row?: SheetRow): boolean => {
+    if (!row) return false;
+    const val = String(
+      row['Access Type'] || 
+      row['access_type'] || 
+      row['Access'] || 
+      row['access'] || 
+      row['Is-free'] || 
+      row['is_free'] || 
+      row['Is_free'] || 
+      row['Type'] || 
+      row['type'] || 
+      row['Plan'] || 
+      ''
+    ).trim().toUpperCase();
+    return val === 'FREE' || val === 'YES' || val === 'TRUE';
+  };
 
-  Future<void> _loadChaptersAndUserStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    _userSubscription = prefs.getString('user_sub') ?? 'FREE';
+  // Enrolled Classroom Student check
+  const isEnrolledStudent = userSubscription.trim().toUpperCase() === 'PRO' || userSubscription.trim().toUpperCase() === 'VERIFIED';
 
-    Set<String> completed = {};
-    for (String key in prefs.getKeys()) {
-      if (key.startsWith('quiz_${widget.className}_${widget.subjectName}_') && prefs.getBool(key) == true) {
+  const loadChaptersAndUserStatus = async () => {
+    setIsLoading(true);
+
+    // 1. Check local status & completed quizzes
+    const sub = (localStorage.getItem('user_sub') || 'FREE').trim().toUpperCase();
+    setUserSubscription(sub === 'PRO' || sub === 'VERIFIED' ? 'PRO' : 'FREE');
+
+    const completed = new Set<string>();
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`quiz_${className}_${subjectName}_`) && localStorage.getItem(key) === 'true') {
         completed.add(key);
       }
     }
+    setCompletedQuizSets(completed);
 
-    String prefix = widget.className.contains("9") ? "9th" : widget.className.contains("10") ? "10th" : "8th";
-    String sheetName = widget.mode == 'mcq' ? '$prefix MCQ' : widget.mode == 'notes' ? '$prefix Notes' : '$prefix practice pdf';
-    final data = await SheetService.fetchSheetData(sheetName);
+    // 2. Fetch sheet data
+    let prefix = className.includes("9") ? "9th" : (className.includes("10") || className.toLowerCase().includes("board")) ? "10th" : "8th";
+    let sheetName = mode === 'mcq' ? `${prefix} MCQ` : mode === 'notes' ? `${prefix} Notes` : `${prefix} practice pdf`;
 
-    final filtered = data.where((item) {
-      final sub = (item['Subject'] ?? item['subject'] ?? '').toString().trim().toLowerCase();
-      final subSub = (item['Sub-subject'] ?? item['sub-subject'] ?? '').toString().trim().toLowerCase();
-      return sub == widget.subjectName.toLowerCase() && subSub == widget.subSubjectName.toLowerCase();
-    }).toList();
+    try {
+      const data = await SheetService.fetchSheetData(sheetName);
 
-    Map<String, List<Map<String, dynamic>>> tempGrouped = {};
-    List<String> tempNames = [];
+      // 3. Filter by Subject & Sub-Subject
+      const filtered = data.filter((item) => {
+        const sub = (
+          item['Subject'] || 
+          item['subject'] || 
+          item['SUBJECT'] || 
+          item['Sub'] || 
+          item['sub'] || 
+          item['Subject Name'] || 
+          item['विषय'] || 
+          ''
+        ).toString().trim().toLowerCase();
+        const subSub = String(item['Sub-subject'] || item['sub-subject'] || item['Sub_subject'] || item['Branch'] || '').trim().toLowerCase();
+        
+        const targetSub = subjectName.trim().toLowerCase();
+        const targetSubSub = subSubjectName.trim().toLowerCase();
 
-    for (var item in filtered) {
-      final chapterName = (item['Chapter'] ?? item['chapter'] ?? 'Unknown Chapter').toString().trim();
-      
-      if (!tempGrouped.containsKey(chapterName)) {
-        tempGrouped[chapterName] = [];
-        tempNames.add(chapterName);
-      }
-      tempGrouped[chapterName]!.add(item);
-    }
-
-    if (mounted) {
-      setState(() {
-        _completedQuizSets = completed;
-        _groupedChapters = tempGrouped;
-        _chapterNames = tempNames;
-        _isLoading = false;
+        const matchSub = sub === targetSub;
+        const matchSubSub = subSub === targetSubSub || targetSubSub === targetSub || !subSub;
+        return matchSub && matchSubSub;
       });
+
+      // 4. Group by chapter
+      const tempGrouped: Record<string, SheetRow[]> = {};
+      const tempNames: string[] = [];
+
+      for (const item of filtered) {
+        const chapterName = String(item['Chapter'] || item['chapter'] || 'General Chapter').trim();
+        if (!tempGrouped[chapterName]) {
+          tempGrouped[chapterName] = [];
+          tempNames.push(chapterName);
+        }
+        tempGrouped[chapterName].push(item);
+      }
+
+      setGroupedChapters(tempGrouped);
+      setChapterNames(tempNames);
+      if (tempNames.length > 0 && !expandedChapter) {
+        setExpandedChapter(tempNames[0]);
+      }
+    } catch (e) {
+      console.error("Error loading chapter data:", e);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Indus App Store Compliant Dialog Popup
-  void _showClassroomStudentsDialog() {
-    const neonCyan = Color(0xFF00F0FF);
-    const neonGold = Color(0xFFFFB800);
+  useEffect(() => {
+    loadChaptersAndUserStatus();
+  }, [className, subjectName, subSubjectName, mode]);
 
-    showDialog(
-      context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0A0F1D),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: neonGold, width: 1.5),
-          ),
-          title: const Column(
-            children: [
-              Icon(Icons.shield_rounded, color: neonGold, size: 36),
-              SizedBox(height: 8),
-              Text(
-                "Classroom Students Only",
-                style: TextStyle(color: neonGold, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "This section is exclusively for registered students of Purix Academy. Access is provided at our classroom center upon enrollment.",
-                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF101726),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Center:", style: TextStyle(color: Colors.white60, fontSize: 11)),
-                        Text("Purix Classroom Center", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                      ],
-                    ),
-                    const Divider(color: Colors.white10, height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Batch Material:", style: TextStyle(color: Colors.white60, fontSize: 11)),
-                        Text("${widget.className} • ${widget.subjectName}", style: const TextStyle(color: Color(0xFF00FF88), fontWeight: FontWeight.bold, fontSize: 11)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 42,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: neonCyan,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () async {
-                      Navigator.pop(dialogCtx);
-                      try {
-                        await launchUrl(Uri.parse("tel:+919508774890"), mode: LaunchMode.externalApplication);
-                      } catch (_) {}
-                    },
-                    icon: const Icon(Icons.phone_rounded, size: 16),
-                    label: const Text(
-                      "CONTACT CENTER",
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text("CLOSE", style: TextStyle(color: Colors.white38, fontSize: 11)),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
+  const toggleExpand = (name: string) => {
+    setExpandedChapter(expandedChapter === name ? null : name);
+  };
 
-  void _openPdfLink(String url, String title, bool isFreeContent) {
-    if (!isFreeContent && _userSubscription != 'PRO') {
-      _showClassroomStudentsDialog();
+  const handlePdfClick = (url: string, title: string, hasAccess: boolean) => {
+    if (!hasAccess) {
+      onUpgradePrompt();
       return;
     }
-
-    if (url.trim().isEmpty || url.trim() == 'N/A') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link not available.")));
+    if (!url || url.trim() === 'N/A' || !url.includes('http')) {
+      alert("Document link is currently being populated on node.");
       return;
     }
+    onOpenPdf(url.trim(), title);
+  };
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PdfViewerScreen(
-          pdfUrl: url,
-          title: title,
-        ),
-      ),
-    );
-  }
-
-  void _startQuiz(String chapterName, bool isFreeContent, int setNumber) async {
-    if (!isFreeContent && _userSubscription != 'PRO') {
-      _showClassroomStudentsDialog();
+  const handleQuizClick = (chapterName: string, setNumber: number, hasAccess: boolean) => {
+    if (!hasAccess) {
+      onUpgradePrompt();
       return;
     }
+    onStartQuiz(chapterName, setNumber);
+  };
 
-    final allQuestions = _groupedChapters[chapterName] ?? [];
-    int startIndex = (setNumber - 1) * 20;
-    int endIndex = startIndex + 20;
-    if (endIndex > allQuestions.length) endIndex = allQuestions.length;
+  return (
+    <div className="min-h-screen bg-[#070B14] text-white flex flex-col relative">
+      {/* App Bar */}
+      <header className="sticky top-0 z-30 bg-[#0A0F1D] border-b border-white/10 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+            title="Go Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="truncate">
+            <h1 className="text-xs md:text-sm font-bold tracking-wider uppercase text-white font-mono truncate">
+              {subSubjectName} - CHAPTERS
+            </h1>
+            <div className="text-[10px] font-mono text-[#00F0FF]/80 truncate">
+              {subjectName} • {className}
+            </div>
+          </div>
+        </div>
 
-    final setQuestions = allQuestions.sublist(startIndex, endIndex);
+        <div className="flex items-center gap-2">
+          {/* Enrollment Status Pill (Appstore policy compliant wording) */}
+          <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
+            isEnrolledStudent 
+              ? 'bg-[#00FF88]/15 border-[#00FF88]/40 text-[#00FF88]' 
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}>
+            {isEnrolledStudent ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+            <span>{isEnrolledStudent ? 'ENROLLED CADET' : 'STANDARD ACCESS'}</span>
+          </div>
 
-    final completed = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QuizScreen(
-          className: widget.className,
-          subjectName: widget.subjectName,
-          subSubjectName: widget.subSubjectName,
-          chapterName: chapterName,
-          questions: setQuestions,
-          setNumber: setNumber,
-        ),
-      ),
-    );
+          {/* Language Toggle Chip */}
+          <button
+            onClick={() => setIsHindiLanguage(!isHindiLanguage)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-mono font-bold tracking-wider hover:bg-[#00F0FF]/25 transition-all cursor-pointer"
+          >
+            <Globe2 className="w-3.5 h-3.5" />
+            <span>{isHindiLanguage ? "HIN 🇮🇳" : "ENG 🌐"}</span>
+          </button>
+        </div>
+      </header>
 
-    if (completed == true) {
-      _loadChaptersAndUserStatus();
-    }
-  }
+      {/* Main Chapters View */}
+      <main className="max-w-2xl w-full mx-auto px-4 py-6 flex-1">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <Loader2 className="w-8 h-8 text-[#00F0FF] animate-spin" />
+            <div className="text-xs font-mono text-[#00F0FF] tracking-widest">
+              COMPILING CHAPTER REGISTRY...
+            </div>
+          </div>
+        ) : chapterNames.length === 0 ? (
+          <div className="text-center py-16 px-4">
+            <FolderX className="w-12 h-12 text-white/30 mx-auto mb-3" />
+            <div className="text-sm font-bold text-white/70 font-mono">
+              NO CHAPTER CONTENT FOUND
+            </div>
+            <div className="text-xs text-white/40 font-mono mt-1">
+              Please verify sheet configuration for {subSubjectName}.
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3.5">
+            {chapterNames.map((chapterName) => {
+              const chapterItems = groupedChapters[chapterName] || [];
+              const firstItem = chapterItems[0];
 
-  @override
-  Widget build(BuildContext context) {
-    const darkVoid = Color(0xFF070B14);
-    const neonCyan = Color(0xFF00F0FF);
-    const neonGreen = Color(0xFF00FF88);
+              // Check if any question in the chapter is marked free in the sheet
+              const isChapterAnyFree = chapterItems.some(isRowMarkedFree);
+              const chapterHasAccess = isChapterAnyFree || isEnrolledStudent;
 
-    return Scaffold(
-      backgroundColor: darkVoid,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.subSubjectName.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-            color: Color(0xFFD4AF37),
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: neonCyan))
-          : _chapterNames.isEmpty
-              ? const Center(
-                  child: Text(
-                    "No chapters found for this subject.",
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _chapterNames.length,
-                  itemBuilder: (context, index) {
-                    final chapterName = _chapterNames[index];
-                    final chapterItems = _groupedChapters[chapterName]!;
-                    final firstItem = chapterItems.first;
-                    
-                    final accessType = (firstItem['Access Type'] ?? firstItem['Is-free'] ?? firstItem['is_free'] ?? 'PAID').toString().trim().toUpperCase();
-                    // Rule: Har class me pehle 2 chapters par "Free Demo" open rehta hai
-                    final bool isFreeContent = accessType == 'FREE' || index < 2;
-                    final bool hasAccess = isFreeContent || _userSubscription == 'PRO';
+              const totalQuestions = chapterItems.length;
+              const totalSets = Math.max(1, Math.ceil(totalQuestions / 20));
+              const isExpanded = expandedChapter === chapterName;
 
-                    int totalQuestions = chapterItems.length;
-                    int totalSets = (totalQuestions / 20).ceil();
+              return (
+                <div
+                  key={chapterName}
+                  className={`bg-[#0B111E] rounded-2xl border transition-all overflow-hidden ${
+                    chapterHasAccess ? 'border-white/12' : 'border-amber-500/30'
+                  }`}
+                >
+                  {/* Chapter Accordion Header */}
+                  <div
+                    onClick={() => toggleExpand(chapterName)}
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-1">
+                        {chapterHasAccess ? (
+                          <CheckCircle className="w-5 h-5 text-[#00F0FF]" />
+                        ) : (
+                          <Lock className="w-5 h-5 text-amber-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`text-sm font-bold tracking-wide ${chapterHasAccess ? 'text-white' : 'text-white/80'}`}>
+                            {chapterName}
+                          </h3>
+                          {/* Access Badge strictly from Google Sheet and Enrollment status */}
+                          {isEnrolledStudent ? (
+                            <span className="text-[9px] font-mono font-bold text-[#FFD700] bg-[#FFD700]/15 border border-[#FFD700]/30 px-1.5 py-0.5 rounded">
+                              ENROLLED
+                            </span>
+                          ) : isChapterAnyFree ? (
+                            <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/15 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                              DEMO
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" />
+                              CLASSROOM ONLY
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] font-mono text-[#00F0FF]/70 mt-0.5">
+                          {mode === 'mcq'
+                            ? `${totalQuestions} Questions • ${totalSets} Sets`
+                            : 'PDF Material & Notes'}
+                        </p>
+                      </div>
+                    </div>
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0B111E),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: hasAccess ? Colors.white12 : Colors.redAccent.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Theme(
-                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          iconColor: neonCyan,
-                          collapsedIconColor: Colors.white54,
-                          leading: Icon(
-                            hasAccess ? Icons.check_circle_outline : Icons.lock_outline,
-                            color: hasAccess ? neonCyan : Colors.redAccent,
-                            size: 24,
-                          ),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  chapterName,
-                                  style: TextStyle(
-                                    color: hasAccess ? Colors.white : Colors.white60,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              if (isFreeContent) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: neonGreen.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: neonGreen.withOpacity(0.4)),
-                                  ),
-                                  child: const Text(
-                                    "FREE DEMO",
-                                    style: TextStyle(color: neonGreen, fontSize: 8.5, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          subtitle: widget.mode == 'mcq'
-                              ? Text(
-                                  "$totalQuestions Questions • $totalSets Sets",
-                                  style: TextStyle(color: neonCyan.withOpacity(0.7), fontSize: 11, fontFamily: 'monospace'),
-                                )
-                              : Text(
-                                  "PDF Material",
-                                  style: TextStyle(color: neonCyan.withOpacity(0.7), fontSize: 11, fontFamily: 'monospace'),
-                                ),
-                          children: [
-                            const Divider(color: Colors.white10, height: 1),
-                            if (widget.mode == 'mcq')
-                              ...List.generate(totalSets, (setIndex) {
-                                int setNumber = setIndex + 1;
-                                int qInThisSet = (setNumber == totalSets && totalQuestions % 20 != 0) 
-                                    ? totalQuestions % 20 
-                                    : 20;
+                    <div className="text-white/40 p-1">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  </div>
 
-                                String setKey = 'quiz_${widget.className}_${widget.subjectName}_${chapterName}_set_${setNumber}_completed';
-                                bool isCompleted = _completedQuizSets.contains(setKey);
+                  {/* Chapter Expanded Items */}
+                  {isExpanded && (
+                    <div className="border-t border-white/10 bg-[#070B14]/40 px-4 py-3 divide-y divide-white/5 space-y-2">
+                      {mode === 'mcq' ? (
+                        // MCQ Mode: Sets of 20
+                        Array.from({ length: totalSets }).map((_, setIdx) => {
+                          const setNumber = setIdx + 1;
+                          const qInThisSet =
+                            setNumber === totalSets && totalQuestions % 20 !== 0
+                              ? totalQuestions % 20
+                              : Math.min(20, totalQuestions);
 
-                                return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                                  title: Row(
-                                    children: [
-                                      Text("Set $setNumber", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                                      const SizedBox(width: 8),
-                                      if (isCompleted)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(color: neonGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-                                          child: const Text("COMPLETED", style: TextStyle(color: neonGreen, fontSize: 9, fontWeight: FontWeight.bold)),
-                                        ),
-                                    ],
-                                  ),
-                                  subtitle: Text("$qInThisSet Questions", style: const TextStyle(color: Colors.white38, fontSize: 10)),
-                                  trailing: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: hasAccess ? neonCyan.withOpacity(0.15) : Colors.redAccent.withOpacity(0.15),
-                                      foregroundColor: hasAccess ? neonCyan : Colors.redAccent,
-                                      side: BorderSide(color: hasAccess ? neonCyan : Colors.redAccent),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                      minimumSize: Size.zero,
-                                    ),
-                                    onPressed: () => _startQuiz(chapterName, isFreeContent, setNumber),
-                                    child: Text(hasAccess ? "START TEST" : "ENROLL", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
-                                );
-                              })
-                            else
-                              ...chapterItems.map((item) {
-                                final pdfTitle = (item['Title'] ?? item['title'] ?? 'Study Notes').toString().trim();
-                                final pdfLink = (item['Link'] ?? item['link'] ?? '').toString().trim();
+                          const setKey = `quiz_${className}_${subjectName}_${chapterName}_set_${setNumber}_completed`;
+                          const isCompleted = completedQuizSets.has(setKey);
 
-                                return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                                  leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFD4AF37), size: 20),
-                                  title: Text(pdfTitle, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                                  trailing: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: hasAccess ? const Color(0xFFD4AF37).withOpacity(0.15) : Colors.redAccent.withOpacity(0.15),
-                                      foregroundColor: hasAccess ? const Color(0xFFD4AF37) : Colors.redAccent,
-                                      side: BorderSide(color: hasAccess ? const Color(0xFFD4AF37) : Colors.redAccent),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                      minimumSize: Size.zero,
-                                    ),
-                                    onPressed: () => _openPdfLink(pdfLink, pdfTitle, isFreeContent),
-                                    child: Text(hasAccess ? "VIEW PDF" : "ENROLL", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
-                                );
-                              }),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-    );
-  }
-}
+                          // Strict Access: Only if this set is marked FREE in the sheet OR student is enrolled
+                          const setSlice = chapterItems.slice(setIdx * 20, (setIdx + 1) * 20);
+                          const isSetFreeInSheet = setSlice.some(isRowMarkedFree) || isRowMarkedFree(firstItem);
+                          const hasSetAccess = isSetFreeInSheet || isEnrolledStudent;
+
+                          return (
+                            <div
+                              key={setNumber}
+                              className="pt-2 first:pt-0 flex items-center justify-between py-2"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold font-mono text-white">
+                                    SET 0{setNumber}
+                                  </span>
+
+                                  {/* Badges: Clean and policy compliant */}
+                                  {isSetFreeInSheet ? (
+                                    <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                                      DEMO
+                                    </span>
+                                  ) : isEnrolledStudent ? (
+                                    <span className="text-[9px] font-mono font-bold text-[#FFD700] bg-[#FFD700]/10 border border-[#FFD700]/30 px-1.5 py-0.5 rounded">
+                                      UNLOCKED
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Lock className="w-2.5 h-2.5" />
+                                      CLASSROOM ONLY
+                                    </span>
+                                  )}
+
+                                  {isCompleted && (
+                                    <span className="flex items-center gap-1 font-mono text-[9px] font-bold text-[#00FF66] bg-[#00FF66]/10 border border-[#00FF66]/30 px-1.5 py-0.5 rounded">
+                                      <CheckCircle className="w-3 h-3" />
+                                      COMPLETED
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-white/50 font-mono mt-0.5">
+                                  {qInThisSet} Simulation Queries
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handleQuizClick(chapterName, setNumber, hasSetAccess)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-mono font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                                  hasSetAccess
+                                    ? 'bg-[#00FF66] hover:bg-[#00e65c] text-black shadow-[0_2px_8px_rgba(0,255,102,0.3)]'
+                                    : 'bg-zinc-800 text-white/40 border border-white/10 hover:border-amber-500/40 hover:text-amber-300'
+                                }`}
+                              >
+                                {!hasSetAccess && <Lock className="w-3 h-3" />}
+                                <span>{hasSetAccess ? (isCompleted ? 'RETRY' : 'START') : 'LOCKED'}</span>
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        // Notes & Practice Sets: PDF Documents
+                        chapterItems.map((item, itemIdx) => {
+                          const isPdfFree = isRowMarkedFree(item) || isRowMarkedFree(firstItem);
+                          const hasPdfAccess = isPdfFree || isEnrolledStudent;
+
+                          const pdfLinkHin = String(item['Drive-link-hin'] || item['Drive_link_hin'] || '');
+                          const pdfLinkEng = String(item['Drive-link-eng'] || item['Drive_link_eng'] || '');
+                          const selectedLink = isHindiLanguage
+                            ? (pdfLinkHin || pdfLinkEng)
+                            : (pdfLinkEng || pdfLinkHin);
+
+                          const partName = chapterItems.length > 1 ? `Part ${itemIdx + 1}` : 'View Document';
+
+                          return (
+                            <div
+                              key={itemIdx}
+                              className="pt-2 first:pt-0 flex items-center justify-between py-2"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                {mode === 'notes' ? (
+                                  <BookOpen className="w-4 h-4 text-[#BF00FF]" />
+                                ) : (
+                                  <FileText className="w-4 h-4 text-[#FF9900]" />
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-white">
+                                      {partName}
+                                    </span>
+                                    {isPdfFree ? (
+                                      <span className="text-[9px] font-mono font-bold text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/30 px-1.5 py-0.5 rounded">
+                                        DEMO
+                                      </span>
+                                    ) : !isEnrolledStudent && (
+                                      <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <Lock className="w-2.5 h-2.5" />
+                                        CLASSROOM ONLY
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-white/50">
+                                    {isHindiLanguage ? 'Hindi Version' : 'English Version'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handlePdfClick(selectedLink, `${chapterName} - ${partName}`, hasPdfAccess)}
+                                className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                                  hasPdfAccess
+                                    ? 'bg-[#00F0FF]/15 hover:bg-[#00F0FF]/30 text-[#00F0FF]'
+                                    : 'bg-red-950/40 text-red-400 border border-red-500/30'
+                                }`}
+                                title={hasPdfAccess ? 'Open PDF' : 'Locked Classroom Material'}
+                              >
+                                {hasPdfAccess ? (
+                                  <FileText className="w-4 h-4" />
+                                ) : (
+                                  <Lock className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
